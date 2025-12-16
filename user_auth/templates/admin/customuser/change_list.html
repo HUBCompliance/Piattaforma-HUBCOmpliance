@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static %}
+
+{% block object-tools %}
+    <li style="margin-right: 10px;">
+        {# Questo nome 'admin:import_student_excel' è definito in admin.py -> get_urls #}
+        {% url 'admin:import_student_excel' as import_url %} 
+        <a href="{{ import_url }}" class="addlink">
+            Importa Studenti (Excel)
+        </a>
+    </li>
+    
+    {{ block.super }}
+{% endblock %}

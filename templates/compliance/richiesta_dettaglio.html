@@ -1,0 +1,70 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{{ titolo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'richiesta_list' %}">{% translate "Gestione Richieste" %}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ titolo_pagina }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 mb-4">{{ titolo_pagina }}</h1>
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <p><strong>{% translate "Richiedente" %}:</strong> {{ richiesta.richiedente_nome }} ({{ richiesta.richiedente_email }})</p>
+                    <p><strong>{% translate "Ricevuta il" %}:</strong> {{ richiesta.data_ricezione|date:"d/m/Y H:i" }}</p>
+                    <p><strong>{% translate "Scadenza" %}:</strong> <span class="fw-bold {% if richiesta.data_scadenza_risposta < timezone.now %}text-danger{% endif %}">{{ richiesta.data_scadenza_risposta|date:"d/m/Y" }}</span></p>
+
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{% translate "Tipo Richiesta" %}</label>
+                        <input type="text" class="form-control" value="{{ richiesta.get_tipo_richiesta_display }}" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{% translate "Testo della Richiesta" %}</label>
+                        <textarea class="form-control" rows="5" readonly>{{ richiesta.richiesta_testo }}</textarea>
+                    </div>
+                    
+                    <hr>
+                    <p class="text-muted">{% translate "Gestisci lo stato e le note interne di questo ticket." %}</p>
+
+                    <div class="mb-3">
+                        <label for="{{ form.stato.id_for_label }}" class="form-label fw-bold">{{ form.stato.label }}</label>
+                        {{ form.stato }}
+                        {% if form.stato.errors %}
+                            <div class="invalid-feedback d-block">{{ form.stato.errors.as_text }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.note_interne.id_for_label }}" class="form-label fw-bold">{{ form.note_interne.label }}</label>
+                        {{ form.note_interne }}
+                        {% if form.note_interne.errors %}
+                            <div class="invalid-feedback d-block">{{ form.note_interne.errors.as_text }}</div>
+                        {% endif %}
+                    </div>
+
+                    <hr class="my-4">
+                    
+                    <button type="submit" class="btn btn-primary btn-lg">{% translate "Aggiorna Ticket" %}</button>
+                    <a href="{% url 'richiesta_list' %}" class="btn btn-outline-secondary btn-lg">{% translate "Annulla" %}</a>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

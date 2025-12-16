@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}Importa Aziende da Excel{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Importa Aziende da File Excel</h1>
+
+    {% if messages %}
+        <ul class="messagelist">{% for message in messages %}
+            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}</ul>
+    {% endif %}
+
+    <form action="" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-row">
+            <p>Carica un file Excel (.xlsx o .xls) per creare Aziende in massa.</p>
+            <p>Il file DEVE contenere la colonna <strong>Nome</strong>. Le colonne opzionali sono: <strong>Contatto Email, Partita IVA, Indirizzo, Referente Aziendale, Numero Referente, Sito Web</strong>.</p>
+        </div>
+        
+        <fieldset class="module aligned wide">
+            <div class="form-row field-excel_file">
+                <div>
+                    <label class="required" for="id_excel_file">File Excel:</label>
+                    <input type="file" name="excel_file" id="id_excel_file" required>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Importa Aziende" class="default">
+            <a href="{% url 'admin:courses_azienda_changelist' %}" class="button cancel">{% translate 'Annulla' %}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

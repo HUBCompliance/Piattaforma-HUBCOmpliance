@@ -1,0 +1,157 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}
+    {% translate "Dettaglio Impianto Videosorveglianza" %} - {{ video.nome_impianto }}
+{% endblock %}
+
+{% block content %}
+    
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-1">
+                {% translate "Impianto Videosorveglianza" %}: {{ video.nome_impianto }}
+            </h1>
+            <p class="text-muted">{% translate "Gestione configurazione e documentazione." %}</p>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            
+            {# 1. DEFINIZIONE DELLE SCHEDE (TABS) #}
+            <ul class="nav nav-tabs" id="videoDetailTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="details-tab" data-bs-toggle="tab" data-bs-target="#details-tab-pane" type="button" role="tab" aria-controls="details-tab-pane" aria-selected="true">
+                        <i class="bi bi-info-circle me-1"></i> {% translate "Dettagli e Conformità" %}
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="kit-tab" data-bs-toggle="tab" data-bs-target="#kit-tab-pane" type="button" role="tab" aria-controls="kit-tab-pane" aria-selected="false">
+                        <i class="bi bi-folder-fill me-1"></i> {% translate "Kit Documentale" %}
+                    </button>
+                </li>
+            </ul>
+
+            {# 2. CONTENUTO DELLE SCHEDE #}
+            <div class="tab-content border border-top-0 bg-white p-3 shadow-sm mb-4" id="videoDetailTabsContent">
+                
+                {# Contenuto 1: Dettagli Impianto #}
+                <div class="tab-pane fade show active" id="details-tab-pane" role="tabpanel" aria-labelledby="details-tab" tabindex="0">
+                    
+                    <h5 class="mb-3">{% translate "Dettagli Tecnici e Valutazione" %}</h5>
+                    
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">{% translate "Nome Impianto" %}:</dt>
+                        <dd class="col-sm-8">{{ video.nome_impianto }}</dd>
+
+                        <dt class="col-sm-4">{% translate "Scopo (Finalità Principale)" %}:</dt>
+                        <dd class="col-sm-8">{{ video.scopo }}</dd>
+                        
+                        <dt class="col-sm-4">{% translate "Numero Telecamere" %}:</dt>
+                        <dd class="col-sm-8">{{ video.numero_telecamere }}</dd>
+
+                        <dt class="col-sm-4">{% translate "Tempo Conservazione" %}:</dt>
+                        <dd class="col-sm-8">{{ video.get_tempo_conservazione_display }}</dd>
+
+                      58                        <dt class="col-sm-4">{% translate "Presente cartello?" %}:</dt>
+59                        <dd class="col-sm-8">{% if video.cartello_presente %}
+60                            <span class="badge bg-success">Sì</span>
+61                        {% else %}
+62                            <span class="badge bg-danger">No</span>
+63                        {% endif %}</dd>
+64                        
+65                        <dt class="col-sm-4">{% translate "Telecamere riprendono attività lavorativa?" %}:</dt>
+66                        <dd class="col-sm-8">{% if video.ripresa_lavorativa %}
+67                            <span class="badge bg-warning text-dark">Sì</span>
+68                        {% else %}
+69                            <span class="badge bg-success">No</span>
+70                        {% endif %}</dd>
+71                        
+72                        <dt class="col-sm-4">{% translate "Autorizzazione ITL/Accordo" %}:</dt>
+73                        <dd class="col-sm-8">{% if video.accordo_presente %}
+74                            <span class="badge bg-success">Sì</span>
+75                        {% else %}
+76                            <span class="badge bg-danger">No</span>
+77                        {% endif %}</dd>
+                        <dt class="col-sm-4 text-uppercase">{% translate "Stato Conformità" %}:</dt>
+                        <dd class="col-sm-8 text-uppercase">
+                            {% if video.stato_conformita == 'CONFORME' %}
+                                <span class="badge bg-success">CONFORME</span>
+                            {% elif video.stato_conformita == 'ILLEGALE' %}
+                                <span class="badge bg-danger">ILLEGALE</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">{{ video.stato_conformita }}</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                    
+                    <hr>
+                    <a href="{% url 'video_create' %}" class="btn btn-sm btn-outline-primary">{% translate "Modifica l'impianto" %}</a>
+                    <a href="{% url 'video_list' %}" class="btn btn-sm btn-outline-secondary">{% translate "Torna agli Impianti" %}</a>
+                    
+                </div>
+                
+                {# Contenuto 2: Kit Documentale Videosorveglianza #}
+                <div class="tab-pane fade" id="kit-tab-pane" role="tabpanel" aria-labelledby="kit-tab" tabindex="0">
+                    
+                    <h5 class="mb-3">{% translate "Kit Documentale Videosorveglianza" %}</h5>
+                    
+                    <p class="small text-muted">
+                        {% translate "Scarica i modelli necessari per l'impianto (GDPR e Statuto dei Lavoratori)." %}
+                    </p>
+                    
+                    <div class="list-group">
+                        {# 1. Autorizzazione Preliminare (Art. 4 St. Lav.) #}
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='itl' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div><i class="bi bi-file-earmark-word me-2"></i> 📂 Istanza ITL (Autorizzazione)</div>
+                            <span class="badge bg-secondary">DOCX</span>
+                        </a>
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='accordo' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div><i class="bi bi-file-earmark-word me-2"></i> 🤝 Bozza Accordo Sindacale</div>
+                            <span class="badge bg-secondary">DOCX</span>
+                        </a>
+                        
+                        {# 2. Nomine #}
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='nomina_resp_esterno' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div><i class="bi bi-file-earmark-person me-2"></i> 🤝 Nomina Responsabile Esterno (Strutturata)</div>
+                            <span class="badge bg-secondary">DOCX</span>
+                        </a>
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='nomina_resp_esterno_ai' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-success text-white">
+                            <div><i class="bi bi-robot me-2"></i> 🤖 Nomina Resp. Esterno (Generata AI)</div>
+                            <span class="badge bg-white text-success">DOCX</span>
+                        </a>
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='nomina_incaricati' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div><i class="bi bi-person-check me-2"></i> 📝 Nomina Incaricati alla visione</div>
+                            <span class="badge bg-secondary">DOCX</span>
+                        </a>
+                        
+                        {# 3. Informative #}
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='cartello' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div><i class="bi bi-card-image me-2"></i> 🖼️ Modello Cartello "Area Videosorvegliata"</div>
+                            <span class="badge bg-secondary">DOCX</span>
+                        </a>
+                        
+                        {# 4. Valutazioni (LIA/DPIA) #}
+                        <div class="list-group-item list-group-item-secondary">
+                            <i class="bi bi-file-text me-2"></i> Valutazioni del Rischio:
+                        </div>
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='lia' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center small ps-5">
+                            LIA (Legitimate Interest Assessment)
+                            <span class="badge bg-secondary">DOCX</span>
+                        </a>
+                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='dpia' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center small ps-5">
+                            DPIA (Data Protection Impact Assessment)
+                            <span class="badge bg-secondary">DOCX</span>
+                        </a>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+        </div>
+    </div>
+    
+{% endblock %}

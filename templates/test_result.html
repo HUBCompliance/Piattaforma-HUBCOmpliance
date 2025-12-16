@@ -1,0 +1,26 @@
+{% extends "base_studente.html" %}
+
+{% block title %}Risultati del Test{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 text-center">
+            <div class="card-body p-5">
+                <h1 class="h3">Complimenti, {{ studente.first_name }}!</h1>
+                <p class="lead">Hai superato il test finale con un punteggio di:</p>
+                <h2 class="display-4 fw-bold text-success my-3">{{ attestato.punteggio_ottenuto|floatformat:0 }}%</h2>
+                <p>Il corso è ora segnato come completato.</p>
+                
+                <a href="{% url 'genera_attestato_pdf' attestato.id %}" class="btn btn-primary btn-lg mt-3">
+                    Scarica Attestato (PDF)
+                </a>
+                
+                <hr class="my-4">
+                
+                <a href="{% url 'dashboard_studente' %}" class="btn btn-outline-secondary">Torna alla Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

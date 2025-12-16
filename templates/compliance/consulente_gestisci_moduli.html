@@ -1,0 +1,65 @@
+{% extends "base_studente.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "Gestisci Moduli" %} - {{ azienda.nome }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="mb-4">{{ titolo_pagina }}</h1>
+        <p class="text-muted">{% translate "Seleziona i moduli di compliance che devono essere visibili al Referente Aziendale." %}</p>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="post" action="{% url 'consulente_gestisci_moduli' azienda.id %}">
+                    {% csrf_token %}
+                    
+                    <h5 class="card-subtitle mb-3 text-primary">{% translate "Attivazione Moduli" %}</h5>
+                    
+                    <div class="row">
+                    {% for modulo in moduli_list %}
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check form-switch p-3 border rounded {% if modulo.field.value %}bg-light border-primary{% endif %}">
+                                
+                                {# 1. STAMPA IL WIDGET CHECKBOX/SWITCH #}
+                                {# Il campo bound (modulo.field) contiene l'input HTML. Nota: Django inserisce qui anche l'ID #}
+                                {{ modulo.field }}
+                                
+                                {# 2. STAMPA LA LABEL (ETICHETTA) CORRETTA #}
+                                <label class="form-check-label h5 mb-0" for="{{ modulo.field.id_for_label }}">
+                                    {{ modulo.name }} 
+                                </label>
+                                
+                                {% for error in modulo.field.errors %}
+                                    <small class="text-danger d-block">{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-warning">{% translate "Nessun modulo configurabile trovato." %}</div>
+                        </div>
+                    {% endfor %}
+                    </div>
+
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard_consulente' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> {% translate "Annulla e Torna" %}
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-save"></i> {% translate "Salva e Applica Moduli" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

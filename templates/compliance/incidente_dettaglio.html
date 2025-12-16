@@ -1,0 +1,51 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Dettaglio Incidente" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'incidente_list' %}">{% translate "Gestione Incidenti" %}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ incidente.titolo }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                 <h5 class="mb-0">{{ incidente.titolo }}</h5>
+            </div>
+            <div class="card-body p-4">
+                <p><strong>{% translate "Segnalato da" %}:</strong> {{ incidente.segnalato_da|default:"-" }}</p>
+                <p><strong>{% translate "Data Rilevamento" %}:</strong> {{ incidente.data_rilevamento|date:"d/m/Y H:i" }}</p>
+                <p><strong>{% translate "Stato" %}:</strong> {{ incidente.get_stato_display }}</p>
+                <p><strong>{% translate "Scadenza 72 Ore" %}:</strong> 
+                    <span class="fw-bold {% if incidente.data_scadenza_notifica < timezone.now %}text-danger{% endif %}">
+                        {{ incidente.data_scadenza_notifica|date:"d/m/Y H:i" }}
+                    </span>
+                </p>
+                
+                <hr>
+                
+                <h6>{% translate "Descrizione dell'accaduto" %}</h6>
+                <p>{{ incidente.descrizione|linebreaks }}</p>
+
+                <h6 class="mt-4">{% translate "Valutazione (inserita dall'Admin)" %}</h6>
+                <p><strong>{% translate "Notifica al Garante Necessaria?" %}</strong> {{ incidente.notifica_garante_necessaria|yesno:"Sì,Necessaria,No" }}</p>
+                <p><strong>{% translate "Notifica agli Interessati Necessaria?" %}</strong> {{ incidente.notifica_interessati_necessaria|yesno:"Sì,Necessaria,No" }}</p>
+
+                <h6 class="mt-4">{% translate "Azioni Correttive (inserite dall'Admin)" %}</h6>
+                <p>{{ incidente.azioni_correttive|linebreaks|default:"Nessuna azione ancora registrata." }}</p>
+
+                <hr>
+                <a href="{% url 'incidente_list' %}" class="btn btn-outline-secondary">{% translate "Torna alla Lista Incidenti" %}</a>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

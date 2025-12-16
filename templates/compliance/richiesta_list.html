@@ -1,0 +1,75 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Gestione Richieste" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{% translate "Gestione Richieste (Ticket)" %}</li>
+            </ol>
+        </nav>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% translate "Registro Richieste Interessati" %}</h5>
+                <a href="{% url 'richiesta_create' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i> {% translate "Registra Nuova Richiesta" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <p>{% translate "Traccia le richieste di accesso, cancellazione, ecc. (Art. 15-22 GDPR)." %}</p>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">{% translate "Richiedente" %}</th>
+                                <th scope="col">{% translate "Tipo Richiesta" %}</th>
+                                <th scope="col">{% translate "Stato" %}</th>
+                                <th scope="col">{% translate "Data Ricezione" %}</th>
+                                <th scope="col">{% translate "Scadenza Risposta (30gg)" %}</th>
+                                <th scope="col">{% translate "Azione" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for richiesta in richieste_list %}
+                            <tr>
+                                <td>{{ richiesta.richiedente_nome }}<br><small class="text-muted">{{ richiesta.richiedente_email }}</small></td>
+                                <td>{{ richiesta.get_tipo_richiesta_display }}</td>
+                                <td>
+                                    {% if richiesta.stato == 'APERTA' %}
+                                        <span class="badge bg-danger">{{ richiesta.get_stato_display }}</span>
+                                    {% elif richiesta.stato == 'IN_LAVORAZIONE' %}
+                                        <span class="badge bg-warning text-dark">{{ richiesta.get_stato_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">{{ richiesta.get_stato_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ richiesta.data_ricezione|date:"d/m/Y" }}</td>
+                                <td class="{% if richiesta.data_scadenza_risposta < timezone.now %}text-danger fw-bold{% endif %}">
+                                    {{ richiesta.data_scadenza_risposta|date:"d/m/Y" }}
+                                </td>
+                                <td>
+                                    <a href="{% url 'richiesta_dettaglio' richiesta.pk %}" class="btn btn-outline-secondary btn-sm">{% translate "Gestisci" %}</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    {% translate "Nessuna richiesta registrata." %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

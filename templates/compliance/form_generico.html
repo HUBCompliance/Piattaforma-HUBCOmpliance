@@ -1,0 +1,61 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ titolo_pagina }}{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <h1 class="h3 mb-3">{{ titolo_pagina }}</h1>
+            {% if sottotitolo_pagina %}<p class="text-muted">{{ sottotitolo_pagina }}</p>{% endif %}
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    
+                    {# Il form DEVE contenere enctype="multipart/form-data" se gestisce file #}
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        {# Mostra i campi del form #}
+                        {{ form.as_p }}
+                        
+                        {# === SEZIONE GENERAZIONE BOZZA AI PER NUOVO DOCUMENTO === #}
+                        {# La logica si attiva solo se ai_mode è True e si sta creando un nuovo record (pk non definito) #}
+                        {% if ai_mode and not form.instance.pk %}
+                            <hr>
+                            <h5 class="mb-3 text-success">
+                                <i class="bi bi-robot me-2"></i> Generazione Bozza AI
+                            </h5>
+                            
+                            {# Pulsante che innesca l'azione 'generate_ai_document_draft' nella view #}
+                            <button type="submit" name="generate_ai_document_draft" class="btn btn-success mb-3">
+                                Genera Bozza Contenuto Documento (AI)
+                            </button>
+                            
+                            {% if ai_suggestion_text %}
+                                <div class="alert alert-success">
+                                    <p><strong>Bozza Generata:</strong> Copia e incolla il testo qui sotto nel tuo file DOCX o PDF, oppure salva il documento per caricarlo come versione iniziale.</p>
+                                    
+                                    {# Area di testo per catturare il risultato AI nel submit finale #}
+                                    <textarea name="ai_draft_content" class="form-control" rows="10" readonly>{{ ai_suggestion_text }}</textarea>
+                                    <p class="small mt-2 text-muted">Nota: Questo testo può essere salvato nella versione iniziale del documento, ma in genere i documenti definitivi vengono caricati come file.</p>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                        {# === FINE SEZIONE AI === #}
+
+                        <hr>
+                        <button type="submit" class="btn btn-primary">
+                            {% if form.instance.pk %}{% translate "Salva Modifiche" %}{% else %}{% translate "Crea Documento" %}{% endif %}
+                        </button>
+                        {% if url_annulla %}
+                        <a href="{% url url_annulla %}" class="btn btn-outline-secondary">{% translate "Annulla" %}</a>
+                        {% endif %}
+                    </form>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

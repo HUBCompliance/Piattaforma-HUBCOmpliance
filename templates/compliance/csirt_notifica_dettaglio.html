@@ -1,0 +1,326 @@
+{% extends "base_studente.html" %}
+{% load i18n static %}
+
+{% block title %}{{ titolo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h1 class="h3 mb-0">{{ titolo_pagina }}: {{ notifica.titolo_incidente }}</h1>
+        <p class="text-muted">{% translate "Gestione Incidente per" %}: <strong>{{ azienda.nome }}</strong></p>
+    </div>
+</div>
+
+{% include "includes/messages.html" %}
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <div class="row">
+        
+        {# === COLONNA SINISTRA: DETTAGLI FISSI, CARATTERIZZAZIONE E STATO (EDITABILE) === #}
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4 border-danger border-3 border-start">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">{% translate "1. Caratterizzazione e Stato di Gestione" %}</h5>
+                </div>
+                <div class="card-body">
+                    
+                    {# RIEPILOGO DATI FISSI #}
+                    <dl class="row small mb-4 pb-3 border-bottom">
+                        <dt class="col-sm-6 fw-bold">{% translate "ID Notifica" %}:</dt>
+                        <dd class="col-sm-6">{{ notifica.pk }}</dd>
+                        
+                        <dt class="col-sm-6 fw-bold">{% translate "Data Incidente" %}:</dt>
+                        <dd class="col-sm-6">{{ notifica.data_incidente|date:"d M Y H:i" }}</dd>
+                        
+                        <dt class="col-sm-6 fw-bold">{% translate "Notificato ACN il" %}:</dt>
+                        <dd class="col-sm-6">{{ notifica.data_notifica|date:"d M Y H:i"|default:"N/A" }}</dd>
+                        
+                        <dt class="col-sm-12 fw-bold mt-2">{% translate "Descrizione Danno" %}:</dt>
+                        <dd class="col-sm-12 small">{{ notifica.descrizione_danno|linebreaksbr|default:"N/A" }}</dd>
+                    </dl>
+
+                    <h6 class="small fw-bold border-bottom pb-2 mb-3 text-danger">{% translate "Caratterizzazione Tecnica (ACN/NIST)" %}</h6>
+
+                    <div class="row">
+                        {# CATEGORIA INCIDENTE #}
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small">{{ form.categoria_incidente.label }}</label>
+                            {{ form.categoria_incidente }}
+                            {% for error in form.categoria_incidente.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+
+                        {# IMPATTO STIMATO #}
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small">{{ form.impatto_stimato.label }}</label>
+                            {{ form.impatto_stimato }}
+                            {% for error in form.impatto_stimato.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+
+                        {# SEVERITÀ/CRITICITÀ #}
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small">{{ form.severita_incidente.label }}</label>
+                            {{ form.severita_incidente }}
+                            {% for error in form.severita_incidente.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                        
+                        {# PLAYBOOK ASSOCIATO #}
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small">{{ form.playbook_associato.label }}</label>
+                            {{ form.playbook_associato }}
+                            {% for error in form.playbook_associato.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6 class="small fw-bold border-bottom pb-2 mb-3 text-info">{% translate "Fase di Risposta e Ripristino" %}</h6>
+                    
+                    {# CAMPO STATO EDITABILE #}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">{{ form.stato.label }}</label>
+                        {{ form.stato }}
+                        {% for error in form.stato.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                    
+                    {# CAMPO VALUTAZIONE RISCHIO #}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">{{ form.valutazione_rischio.label }}</label>
+                        {{ form.valutazione_rischio }}
+                        {% for error in form.valutazione_rischio.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                    
+                    {# CAMPO AZIONI CORRETTIVE #}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">{{ form.azioni_correttive.label }}</label>
+                        {{ form.azioni_correttive }}
+                        {% for error in form.azioni_correttive.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                    
+                    {% if not is_referente %}
+                        <div class="text-end mt-4">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-save"></i> {% translate "Salva Aggiornamento Stato" %}
+                            </button>
+                        </div>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+        
+        {# === COLONNA DESTRA: ALLEGATI, PLAYBOOK & AI === #}
+        <div class="col-lg-6">
+            
+            {# 3. GENERAZIONE PLAYBOOK AI #}
+            <div class="card shadow-sm mb-4 border-info border-3 border-start">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">{% translate "3. Supporto AI: Playbook di Risposta" %}</h5>
+                </div>
+                <div class="card-body">
+                    
+                    {% if not is_referente %}
+                        <p class="small text-muted">{% translate "Utilizza l'AI per generare una bozza di Playbook basata sulla categoria e l'impatto definiti." %}</p>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="#" class="btn btn-sm btn-outline-info" id="btn-repository-playbooks" target="_blank">
+                                <i class="bi bi-folder"></i> {% translate "Apri Repository Template Standard" %}
+                            </a>
+
+                            <button type="button" class="btn btn-sm btn-primary" id="btn-generate-ai-playbook" disabled>
+                                <i class="bi bi-robot"></i> {% translate "Genera Bozza Playbook con AI" %}
+                            </button>
+                        </div>
+
+                        <hr>
+                    {% endif %}
+
+                    <h6 class="small fw-bold">{% translate "Risultato Generazione AI" %}</h6>
+                    <div id="ai-playbook-result" class="p-3 bg-light border rounded small">
+                        {% if not is_referente %}
+                           {% translate "Clicca sul pulsante 'Genera Bozza Playbook' per ricevere istruzioni specifiche basate sull'IA." %}
+                        {% else %}
+                           {% translate "Visualizzazione AI disabilitata. Contatta il tuo Consulente." %}
+                        {% endif %}
+                    </div>
+
+                    <div id="ai-loading-spinner" class="text-center mt-3 d-none">
+                        <div class="spinner-border text-primary spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="small ms-2">{% translate "Generazione Playbook in corso..." %}</span>
+                    </div>
+
+                </div>
+            </div>
+            
+            {# 2. GESTIONE ALLEGATI (Formset) #}
+            <div class="card shadow-sm mb-4 border-secondary border-3 border-start">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">{% translate "2. Gestione Allegati: PlayBook" %}</h5>
+                </div>
+                <div class="card-body">
+                    
+                    <h6 class="small fw-bold">{% translate "File Caricati" %}</h6>
+                    <ul class="list-group list-group-flush small mb-3">
+                        {% for allegato in notifica.allegati.all %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-paperclip me-1"></i> {{ allegato.descrizione|default:allegato.file.name }}</span>
+                                <a href="{{ allegato.file.url }}" target="_blank" class="btn btn-sm btn-outline-dark">{% translate "Scarica" %}</a>
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item text-muted">{% translate "Nessun file allegato." %}</li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <hr>
+                    <h6 class="small fw-bold mt-4">{% translate "Aggiungi/Gestisci Allegati" %}</h6>
+
+                    {{ allegato_formset.management_form }}
+                    <div id="allegato-formset" class="d-grid gap-2">
+                        {# Iteriamo sul formset per permettere l'upload di nuove righe #}
+                        {% for allegato_form in allegato_formset %}
+                            <div class="row mb-2 p-2 border rounded form-row">
+                                
+                                <div class="col-md-5">
+                                    <label class="form-label small">{% translate "File" %}</label>
+                                    {{ allegato_form.file }}
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small">{% translate "Descrizione" %}</label>
+                                    {{ allegato_form.descrizione }}
+                                </div>
+                                
+                                <div class="col-md-2 d-flex align-items-center pt-3">
+                                    {{ allegato_form.DELETE }}
+                                    <label class="ms-2 small">{% translate "Cancella" %}</label>
+                                </div>
+                                
+                                {{ allegato_form.id }}
+                                {% if allegato_form.errors %}<div class="text-danger small">{{ allegato_form.errors }}</div>{% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if not is_referente %}
+                        <button type="submit" class="btn btn-sm btn-secondary mt-3">
+                            <i class="bi bi-upload"></i> {% translate "Salva/Aggiorna Allegati" %}
+                        </button>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+</form>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{% url 'csirt_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> {% translate "Torna alla Dashboard CSIRT" %}
+        </a>
+    </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+    (function($) {
+        $(document).ready(function() {
+            // -------------------------------------------------------
+            // 1. Setup Iniziale e Applicazione Stili
+            // -------------------------------------------------------
+            document.querySelectorAll('form input:not([type="checkbox"]):not([type="hidden"]):not([type="file"]), form select, form textarea').forEach(function(el) {
+                if (!el.classList.contains('form-control')) {
+                    el.classList.add('form-control');
+                }
+                if (el.type === 'file' && !el.classList.contains('form-control-file')) {
+                    el.classList.add('form-control-file'); 
+                }
+            });
+
+            // Disabilita i campi per il Referente (sola lettura)
+            {% if is_referente %}
+                document.querySelectorAll('form input, form select, form textarea, form button[type="submit"]').forEach(function(el) {
+                    el.disabled = true;
+                });
+                document.querySelector('a.btn-outline-secondary').disabled = false;
+            {% endif %}
+
+            // -------------------------------------------------------
+            // 2. Logica di Generazione Playbook AI
+            // -------------------------------------------------------
+            const $btnAI = $('#btn-generate-ai-playbook');
+            const $aiResult = $('#ai-playbook-result');
+            const $loadingSpinner = $('#ai-loading-spinner');
+            const csrftoken = $('[name=csrfmiddlewaretoken]').val();
+            
+            // Attivazione iniziale del pulsante AI (dopo il caricamento)
+            $btnAI.prop('disabled', false);
+
+            $btnAI.on('click', function(e) {
+                e.preventDefault();
+                
+                // 1. Recupera i dati di caratterizzazione per il prompt
+                const categoria = $('#id_categoria_incidente').val();
+                const impatto = $('#id_impatto_stimato').val();
+                const titolo = '{{ notifica.titolo_incidente|escapejs }}';
+                const descrizione_danno = '{{ notifica.descrizione_danno|escapejs }}';
+                
+                if (!categoria || !impatto) {
+                    $aiResult.html('<div class="text-warning">{% translate "Selezionare Categoria Incidente e Impatto stimato prima di generare il Playbook." %}</div>');
+                    return;
+                }
+
+                // 2. Costruzione del Prompt contestualizzato
+                const prompt = `Sei un esperto di CSIRT e NIS2. Genera una bozza di Playbook di risposta agli incidenti, formattata con titoli chiari (Preparazione, Rilevamento, Contenimento, Eradicazione, Ripristino, Miglioramento). L'incidente ha la seguente caratterizzazione: 
+Titolo: "${titolo}",
+Categoria: "${categoria}",
+Impatto: "${impatto}",
+Descrizione del danno: "${descrizione_danno}".
+Includi istruzioni specifiche per la fase di Contenimento e le azioni immediate richieste. Rispondi in italiano.`;
+
+                // 3. Esecuzione della Chiamata AI (Asincrona)
+                $btnAI.prop('disabled', true);
+                $aiResult.html('');
+                $loadingSpinner.removeClass('d-none');
+                
+                $.ajax({
+                    url: "{% url 'csirt_ai_query' %}", 
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ prompt: prompt }),
+                    headers: { 'X-CSRFToken': csrftoken },
+                    success: function(response) {
+                        $loadingSpinner.addClass('d-none');
+                        $btnAI.prop('disabled', false);
+                        
+                        if (response.success) {
+                            // Sostituisce i salti di linea con tag HTML <br> per la formattazione
+                            const formattedText = response.response.replace(/\n/g, '<br>');
+                            $aiResult.html('<div class="text-success small">' + formattedText + '</div>');
+                        } else {
+                            $aiResult.html('<div class="text-danger small">{% translate "Errore Generazione AI:" %} ' + response.error + '</div>');
+                        }
+                    },
+                    error: function(xhr) {
+                        $loadingSpinner.addClass('d-none');
+                        $btnAI.prop('disabled', false);
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Errore sconosciuto. Controlla la console.';
+                        $aiResult.html('<div class="text-danger small">{% translate "Errore di Connessione al Server AI:" %} ' + errorMsg + '</div>');
+                    }
+                });
+            });
+
+            // -------------------------------------------------------
+            // 3. Link Repository Playbook Standard
+            // -------------------------------------------------------
+            // Link alla repository ACN per le Linee Guida
+            $('#btn-repository-playbooks').attr('href', 'https://www.acn.gov.it/portale/linee-guida-csirt-e-gestione-incidenti');
+            
+        });
+    })(jQuery);
+</script>
+{% endblock content %}

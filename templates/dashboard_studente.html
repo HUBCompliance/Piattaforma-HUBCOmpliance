@@ -1,0 +1,90 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% translate "Dashboard Consulente" %}{% endblock %}
+
+{% block content %}
+    <h1 class="h3 mb-4">{% translate "Gestione Aziende Cliente" %}</h1>
+
+    {% include "includes/messages.html" %}
+    
+    {% if aziende_list %}
+        {% for azienda in aziende_list %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ azienda.nome }} (P.IVA: {{ azienda.partita_iva }})</h5>
+                    <div>
+                        {# L'accesso alla dashboard compliance per l'azienda selezionata #}
+                        <a href="{% url 'dashboard_compliance' %}?azienda_id={{ azienda.id }}" class="btn btn-sm btn-primary me-2">
+                            {% translate "Accedi Dashboard" %} <i class="bi bi-arrow-right"></i>
+                        </a>
+                        {# Link per la gestione dei moduli (Attiva/Disattiva) #}
+                        <a href="{% url 'consulente_gestisci_moduli' azienda_id=azienda.id %}" class="btn btn-sm btn-outline-secondary">
+                            {% translate "Gestisci Moduli" %}
+                        </a>
+                        {# Link per aggiungere Referente (Se esiste una vista add-referente) #}
+                        {# <a href="{% url 'consulente_add_referente' azienda_id=azienda.id %}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-person-plus"></i>
+                        </a> #}
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <p class="small text-muted">{% translate "Stato Contratto" %}: <strong>{{ azienda.stato_contratto }}</strong></p>
+                    
+                    <h6>{% translate "Moduli Attivi" %}</h6>
+                    <div class="d-flex flex-wrap gap-3">
+                        
+                        {# LOGICA PER MOSTRARE TUTTI I MODULI #}
+                        
+                        {# Modulo: Trattamenti #}
+                        {% if azienda.mod_trattamenti %}
+                            <span class="badge bg-success"><i class="bi bi-list-task"></i> Trattamenti</span>
+                        {% else %}
+                            <span class="badge bg-danger">Trattamenti</span>
+                        {% endif %}
+
+                        {# Modulo: Documenti #}
+                        {% if azienda.mod_documenti %}
+                            <span class="badge bg-success"><i class="bi bi-file-earmark-text"></i> Documenti</span>
+                        {% else %}
+                            <span class="badge bg-danger">Documenti</span>
+                        {% endif %}
+                        
+                        {# Modulo: Audit #}
+                        {% if azienda.mod_audit %}
+                            <span class="badge bg-success"><i class="bi bi-check2-square"></i> Audit</span>
+                        {% else %}
+                            <span class="badge bg-danger">Audit</span>
+                        {% endif %}
+
+                        {# Modulo: Videosorveglianza #}
+                        {% if azienda.mod_videosorveglianza %}
+                            <span class="badge bg-success"><i class="bi bi-camera-video"></i> Videosorveglianza</span>
+                        {% else %}
+                            <span class="badge bg-danger">Videosorveglianza</span>
+                        {% endif %}
+                        
+                        {# Modulo: TIA Estero #}
+                        {% if azienda.mod_tia %}
+                            <span class="badge bg-success"><i class="bi bi-globe"></i> TIA Estero</span>
+                        {% else %}
+                            <span class="badge bg-danger">TIA Estero</span>
+                        {% endif %}
+
+                        {# Modulo: Organigramma #}
+                        {% if azienda.mod_organigramma %}
+                            <span class="badge bg-success"><i class="bi bi-diagram-3"></i> Organigramma</span>
+                        {% else %}
+                            <span class="badge bg-danger">Organigramma</span>
+                        {% endif %}
+                        
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">{% translate "Non stai gestendo nessuna azienda." %}</div>
+    {% endif %}
+{% endblock %}

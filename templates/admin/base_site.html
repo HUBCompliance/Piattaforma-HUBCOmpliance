@@ -1,0 +1,36 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        /* Sfondo Header (Colore Primario dal DB) */
+        #header {
+            background-color: {{ site_config.colore_primario|default:"#005a9c" }};
+            color: {{ site_config.colore_secondario|default:"#f5f5f5" }}; 
+        }
+        
+        #header #site-name a {
+            color: {{ site_config.colore_secondario|default:"#ffffff" }};
+        }
+    </style>
+{% endblock %}
+
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        
+        {% if site_config.logo_principale %}
+            <img src="{{ site_config.logo_principale.url }}" alt="Logo" 
+                 style="height: 30px; width: auto; margin-right: 10px; vertical-align: middle; filter: brightness(0) invert(1);">
+        {% endif %}
+        
+        <span style="vertical-align: middle;">
+            {{ site_config.nome_piattaforma|default:"Amministrazione Piattaforma" }}
+        </span>
+    </a>
+</h1>
+{% endblock %}
+
+{% block title %}Pannello Amministrazione{% endblock %}

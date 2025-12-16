@@ -1,0 +1,687 @@
+{% extends "base_studente.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "Configurazione Rete Informatica (NIS2)" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-4">
+    <h1 class="h3 mb-0">{% translate "Configurazione Rete Informatica" %}</h1>
+    <p class="text-muted mb-0">{% translate "Gestione dei componenti essenziali e dei controlli di sicurezza." %}</p>
+  </div>
+</div>
+
+{% include "includes/messages.html" %}
+
+<form method="post" id="network-config-form">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger small d-flex align-items-center mb-4">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <!-- ================== RIGA PRINCIPALE (2 COLONNE) ================== -->
+  <div class="row">
+
+    <!-- ================= LEFT COLUMN ================= -->
+    <div class="col-md-6">
+
+      <!-- CARD 1 (grande, in alto a sinistra) -->
+      <div class="card shadow-sm mb-4 border-primary border-3 border-start">
+        <div class="card-header bg-light">
+          <h5 class="mb-0 text-primary">{% translate "Livello 1: Architettura e Perimetro" %}</h5>
+        </div>
+        <div class="card-body">
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold">{{ form.tipo_architettura.label }}</label>
+            {{ form.tipo_architettura }}
+            {% for error in form.tipo_architettura.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            <div class="form-text small">
+              {% translate "Suggerimento: scegli la forma della rete (Star, Mesh, Gerarchica, Piatta). La visualizzazione sotto si aggiornerà dopo il salvataggio." %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold">{{ form.firewall_utilizzato.label }}</label>
+            {{ form.firewall_utilizzato }}
+            {% for error in form.firewall_utilizzato.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold">{{ form.segmentazione_rete.label }}</label>
+            {{ form.segmentazione_rete }}
+            {% if form.segmentazione_rete.help_text %}
+              <div class="form-text small">{{ form.segmentazione_rete.help_text }}</div>
+            {% endif %}
+            {% for error in form.segmentazione_rete.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+        </div>
+      </div>
+
+      <!-- CARD 2 -->
+      <div class="card shadow-sm mb-4 border-secondary border-3 border-start">
+        <div class="card-header bg-light">
+          <h5 class="mb-0 text-secondary">{% translate "Livello 3: Gestione e Manutenzione" %}</h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label small fw-bold">{{ form.politica_patching.label }}</label>
+            {{ form.politica_patching }}
+            {% for error in form.politica_patching.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold">{{ form.gestione_vpn.label }}</label>
+            {{ form.gestione_vpn }}
+            {% for error in form.gestione_vpn.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 3 -->
+      <div class="card shadow-sm mb-4 border-success border-3 border-start">
+        <div class="card-header bg-light">
+          <h5 class="mb-0 text-success">{% translate "Livello 2: Controlli di Difesa Attiva" %}</h5>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">{% translate "Stato di attivazione dei sistemi di sicurezza essenziali." %}</p>
+
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <label class="form-label mb-0" for="{{ form.sistema_ids_ips.id_for_label }}">{% translate "Sistema IDS/IPS Attivo" %}</label>
+              <div class="form-check form-switch ms-3">
+                {{ form.sistema_ids_ips }}
+                <label class="form-check-label visually-hidden" for="{{ form.sistema_ids_ips.id_for_label }}"></label>
+              </div>
+            </li>
+
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <label class="form-label mb-0" for="{{ form.gestione_antivirus_centralizzata.id_for_label }}">{% translate "Gestione Antivirus Centralizzata" %}</label>
+              <div class="form-check form-switch ms-3">
+                {{ form.gestione_antivirus_centralizzata }}
+                <label class="form-check-label visually-hidden" for="{{ form.gestione_antivirus_centralizzata.id_for_label }}"></label>
+              </div>
+            </li>
+
+            {% for error in form.gestione_antivirus_centralizzata.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end mb-4">
+        {% if not is_referente %}
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save me-1"></i> {% translate "Salva Configurazione Rete" %}
+          </button>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- ================= RIGHT COLUMN (CARD 4) ================= -->
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4 border-warning border-3 border-start">
+        <div class="card-header bg-light">
+          <h5 class="mb-0 text-warning">{% translate "4. Componenti di Rete (Device/Nodi)" %}</h5>
+        </div>
+        <div class="card-body">
+
+          <p class="text-muted small">{% translate "Aggiungi i principali nodi e device (Firewall, Hub, Server, ecc.)." %}</p>
+
+          <h6 class="text-secondary small fw-bold mb-3">{% translate "Componenti Registrati" %}</h6>
+
+          {% if componenti_salvati %}
+            <table class="table table-sm table-hover small mb-4">
+              <thead>
+                <tr>
+                  <th>{% translate "Nome/ID" %}</th>
+                  <th>{% translate "Tipo" %}</th>
+                  <th>{% translate "IP" %}</th>
+                  <th>{% translate "Criticità" %}</th>
+                  <th class="text-center">{% translate "Azioni" %}</th>
+                </tr>
+              </thead>
+              <tbody id="componenti-riepilogo-list">
+                {% for componente in componenti_salvati %}
+                  <tr data-component-pk="{{ componente.pk }}">
+                    <td>{{ componente.nome_componente }}</td>
+                    <td><span class="badge bg-secondary">{{ componente.get_tipo_display }}</span></td>
+                    <td>{{ componente.indirizzo_ip|default:"N/D" }}</td>
+                    <td>
+                      {% if componente.criticita == 'ALTA' %}
+                        <span class="badge bg-danger">{{ componente.get_criticita_display }}</span>
+                      {% elif componente.criticita == 'MEDIA' %}
+                        <span class="badge bg-warning text-dark">{{ componente.get_criticita_display }}</span>
+                      {% else %}
+                        <span class="badge bg-success">{{ componente.get_criticita_display }}</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      <button type="button"
+                              class="btn btn-sm btn-outline-primary btn-details d-inline-flex align-items-center gap-1"
+                              data-pk="{{ componente.pk }}">
+                        <i class="bi bi-chevron-down toggle-icon"></i>
+                        {% if is_referente %}{% translate "Dettagli" %}{% else %}{% translate "Modifica" %}{% endif %}
+                      </button>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="alert alert-info small">{% translate "Nessun componente di rete registrato." %}</div>
+            <tbody id="componenti-riepilogo-list" class="d-none"></tbody>
+          {% endif %}
+
+          <hr>
+
+          {% if not is_referente %}
+            <button type="button" class="btn btn-sm btn-success mb-4" id="add-component-row">
+              <i class="bi bi-plus-circle"></i> {% translate "Aggiungi Nuovo Componente" %}
+            </button>
+          {% endif %}
+
+          {{ componente_formset.management_form }}
+
+          <div id="empty-form-template" class="d-none">
+            {{ componente_formset.empty_form.as_p|safe }}
+          </div>
+
+          <div id="componenti-formset-container" class="d-grid gap-3">
+            {% for form_componente in componente_formset %}
+              {% if form_componente.instance.pk or form_componente.errors or form_componente.non_field_errors %}
+                <div class="componente-form-row card card-body mb-3 {% if form_componente.instance.pk == None %} new-form{% endif %} {% if form_componente.errors %} border-danger {% endif %}"
+                     data-form-index="{{ forloop.counter0 }}"
+                     data-saved="{% if form_componente.instance.pk %}true{% else %}false{% endif %}"
+                     data-pk="{{ form_componente.instance.pk|default:'' }}">
+
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 component-title">{% translate "Componente" %} #{{ forloop.counter }}</h6>
+                    {% if not is_referente %}
+                      <button type="button" class="btn btn-sm btn-outline-danger remove-componente-row">
+                        {% if form_componente.instance.pk %}{% translate "Cancella" %}{% else %}{% translate "Rimuovi" %}{% endif %}
+                      </button>
+                    {% endif %}
+                  </div>
+
+                  {% if form_componente.non_field_errors %}
+                    <div class="alert alert-danger small">{{ form_componente.non_field_errors }}</div>
+                  {% endif %}
+
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label small fw-bold">{{ form_componente.nome_componente.label }}</label>
+                      {{ form_componente.nome_componente }}
+                      {% for error in form_componente.nome_componente.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label small fw-bold">{{ form_componente.indirizzo_ip.label }}</label>
+                      {{ form_componente.indirizzo_ip }}
+                      {% for error in form_componente.indirizzo_ip.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label small fw-bold">{{ form_componente.tipo.label }}</label>
+                      {{ form_componente.tipo }}
+                      {% for error in form_componente.tipo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label small fw-bold">{{ form_componente.criticita.label }}</label>
+                      {{ form_componente.criticita }}
+                      {% for error in form_componente.criticita.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="col-12 mb-3">
+                      <label class="form-label small fw-bold">{{ form_componente.descrizione_funzione.label }}</label>
+                      {{ form_componente.descrizione_funzione }}
+                      {% for error in form_componente.descrizione_funzione.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    {{ form_componente.id }}
+                    {{ form_componente.configurazione }}
+                    {{ form_componente.DELETE }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!-- ================== FINE RIGA PRINCIPALE ================== -->
+
+
+  <!-- ================== TOPOLOGIA FULL WIDTH (SOTTO TUTTO) ================== -->
+  <div class="row">
+    <div class="col-12">
+
+      <!-- ✅ ID aggiunto per stampa mirata -->
+      <div class="card shadow-sm mb-4 border-info border-3 border-start" id="topologia-card">
+        <!-- ✅ Header reso flex + aggiunto pulsante -->
+        <div class="card-header bg-info text-white d-flex align-items-center justify-content-between">
+          <h5 class="mb-0">{% translate "Visualizzazione Topologica (Criticità)" %}</h5>
+
+          <!-- ✅ Tasto Export PDF (print del browser) -->
+          <button type="button" class="btn btn-light btn-sm" onclick="exportTopologiaPDF()">
+            <i class="bi bi-file-earmark-pdf me-1"></i>
+            {% translate "Esporta PDF" %}
+          </button>
+        </div>
+
+        <div class="card-body">
+
+          {% if componenti_salvati %}
+            <style>
+              .topo-wrap { max-width: 1100px; margin: 0 auto; }
+              .topo-legend { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; margin-bottom: 12px; }
+              .legend-pill { border:1px solid #ddd; border-radius: 999px; padding: 4px 10px; font-size: 12px; background:#fff; }
+              .topo-note { font-size: 12px; color: #6c757d; text-align:center; margin-bottom: 14px; }
+
+              .topo-root {
+                border: 2px solid #0d6efd;
+                border-radius: 12px;
+                padding: 14px 16px;
+                background: #0d6efd;
+                color: #fff;
+                box-shadow: 0 6px 16px rgba(0,0,0,.08);
+              }
+              .topo-root small { opacity: .9; letter-spacing: .06em; }
+
+              .topo-node {
+                border: 2px solid #0d6efd;
+                border-radius: 12px;
+                padding: 10px 12px;
+                background: #fff;
+                box-shadow: 0 6px 16px rgba(0,0,0,.05);
+                min-width: 210px;
+                max-width: 340px;
+              }
+              .topo-node .meta { font-size: 12px; color: #6c757d; }
+              .topo-node .title { font-weight: 700; }
+              .topo-node.is-high { border-color: #dc3545; }
+              .topo-node.is-med  { border-color: #ffc107; }
+              .topo-node.is-low  { border-color: #198754; }
+
+              .topo-grid { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; }
+              .topo-section-title { font-weight: 700; font-size: 13px; color:#495057; text-transform: uppercase; letter-spacing:.06em; margin: 14px 0 10px; text-align:center; }
+              .topo-line { height: 18px; width: 2px; background: rgba(0,0,0,.2); margin: 10px auto; border-radius: 2px; }
+
+              /* Layout helpers per le 4 “forme” */
+              .layout-star .hub-row { display:flex; justify-content:center; margin: 12px 0; }
+              .layout-star .spokes { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; }
+
+              .layout-mesh .mesh {
+                display:grid;
+                grid-template-columns: repeat(3, minmax(220px, 1fr));
+                gap: 12px;
+                align-items: stretch;
+              }
+              @media (max-width: 992px){ .layout-mesh .mesh { grid-template-columns: repeat(2, minmax(220px, 1fr)); } }
+              @media (max-width: 576px){ .layout-mesh .mesh { grid-template-columns: 1fr; } }
+
+              .layout-hier .tiers { display:flex; flex-direction:column; gap: 14px; }
+              .layout-hier .tier { display:flex; flex-wrap:wrap; gap: 12px; justify-content:center; }
+              .tier-label { text-align:center; font-size: 12px; color:#6c757d; margin-bottom: 6px; }
+
+              .layout-flat .flat { display:flex; flex-wrap:wrap; gap: 12px; justify-content:center; }
+              .badge-soft { display:inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(13,110,253,.08); color:#0d6efd; margin-left: 6px; }
+
+              /* ✅ PRINT: stampa solo la card topologia */
+              @media print {
+                body * { visibility: hidden !important; }
+                #topologia-card, #topologia-card * { visibility: visible !important; }
+                #topologia-card { position: absolute !important; left: 0; top: 0; width: 100% !important; }
+                /* nasconde il bottone in stampa */
+                #topologia-card .card-header button { display: none !important; }
+              }
+            </style>
+
+            <div class="topo-wrap">
+
+              <div class="topo-legend">
+                <span class="legend-pill"><span class="me-1">🔴</span>{% translate "Criticità Alta" %}</span>
+                <span class="legend-pill"><span class="me-1">🟡</span>{% translate "Criticità Media" %}</span>
+                <span class="legend-pill"><span class="me-1">🟢</span>{% translate "Criticità Bassa" %}</span>
+                <span class="legend-pill"><span class="me-1">ℹ️</span>{% translate "Vista descrittiva (non tecnica)" %}</span>
+              </div>
+
+              <div class="topo-root text-center">
+                <small class="text-uppercase fw-bold d-block">{% translate "Architettura Base" %}</small>
+
+                <h5 class="mb-0 d-flex flex-column align-items-center justify-content-center gap-1">
+                  <span class="fw-bold">
+                    {{ architettura_tipo|default:_("Non Definita") }}
+                  </span>
+                  <span class="badge-soft">{% translate "si aggiorna dopo il salvataggio" %}</span>
+                </h5>
+              </div>
+
+              <div class="topo-line"></div>
+
+              <div class="topo-note">
+                {% translate "Qui mostriamo solo i componenti con criticità Alta o Media, per aiutarti a individuare rapidamente i punti più sensibili." %}
+              </div>
+
+              {% if componenti_critici %}
+                <div class="topo-section-title">{% translate "Componenti di Sicurezza / Critici" %}</div>
+
+                {# ===================== LAYOUT: HIERARCHICAL ===================== #}
+                {% if architettura_key == 'HIERARCHICAL' %}
+                  <div class="layout-hier">
+                    <div class="tiers">
+
+                      <div>
+                        <div class="tier-label">{% translate "Livello Perimetrale / Controllo" %}</div>
+                        <div class="tier">
+                          {% for componente in componenti_critici %}
+                            {% if componente.tipo == 'FIREWALL' %}
+                              <div class="topo-node {% if componente.criticita == 'ALTA' %}is-high{% elif componente.criticita == 'MEDIA' %}is-med{% else %}is-low{% endif %}">
+                                <div class="title">{{ componente.nome_componente }}</div>
+                                <div class="meta">{{ componente.get_tipo_display }} · {{ componente.get_criticita_display }}</div>
+                                <div class="meta">{% translate "IP" %}: {{ componente.indirizzo_ip|default:"N/D" }}</div>
+                              </div>
+                            {% endif %}
+                          {% endfor %}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div class="tier-label">{% translate "Livello Servizi / Elaborazione" %}</div>
+                        <div class="tier">
+                          {% for componente in componenti_critici %}
+                            {% if componente.tipo == 'SERVER' %}
+                              <div class="topo-node {% if componente.criticita == 'ALTA' %}is-high{% elif componente.criticita == 'MEDIA' %}is-med{% else %}is-low{% endif %}">
+                                <div class="title">{{ componente.nome_componente }}</div>
+                                <div class="meta">{{ componente.get_tipo_display }} · {{ componente.get_criticita_display }}</div>
+                                <div class="meta">{% translate "IP" %}: {{ componente.indirizzo_ip|default:"N/D" }}</div>
+                              </div>
+                            {% endif %}
+                          {% endfor %}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div class="tier-label">{% translate "Livello Accesso / Distribuzione" %}</div>
+                        <div class="tier">
+                          {% for componente in componenti_critici %}
+                            {% if componente.tipo != 'FIREWALL' and componente.tipo != 'SERVER' %}
+                              <div class="topo-node {% if componente.criticita == 'ALTA' %}is-high{% elif componente.criticita == 'MEDIA' %}is-med{% else %}is-low{% endif %}">
+                                <div class="title">{{ componente.nome_componente }}</div>
+                                <div class="meta">{{ componente.get_tipo_display }} · {{ componente.get_criticita_display }}</div>
+                                <div class="meta">{% translate "IP" %}: {{ componente.indirizzo_ip|default:"N/D" }}</div>
+                              </div>
+                            {% endif %}
+                          {% endfor %}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                {# ===================== LAYOUT: STAR ===================== #}
+                {% elif architettura_key == 'STAR' %}
+                  <div class="layout-star">
+                    <div class="hub-row">
+                      <div class="topo-node is-med">
+                        <div class="title">{% translate "Nodo Centrale" %}</div>
+                        <div class="meta">{% translate "Switch/Hub/Controller (rappresentazione descrittiva)" %}</div>
+                      </div>
+                    </div>
+
+                    <div class="spokes">
+                      {% for componente in componenti_critici %}
+                        <div class="topo-node {% if componente.criticita == 'ALTA' %}is-high{% elif componente.criticita == 'MEDIA' %}is-med{% else %}is-low{% endif %}">
+                          <div class="title">{{ componente.nome_componente }}</div>
+                          <div class="meta">{{ componente.get_tipo_display }} · {{ componente.get_criticita_display }}</div>
+                          <div class="meta">{% translate "IP" %}: {{ componente.indirizzo_ip|default:"N/D" }}</div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+
+                {# ===================== LAYOUT: MESH ===================== #}
+                {% elif architettura_key == 'MESH' %}
+                  <div class="layout-mesh">
+                    <div class="mesh">
+                      {% for componente in componenti_critici %}
+                        <div class="topo-node {% if componente.criticita == 'ALTA' %}is-high{% elif componente.criticita == 'MEDIA' %}is-med{% else %}is-low{% endif %}">
+                          <div class="title">{{ componente.nome_componente }}</div>
+                          <div class="meta">{{ componente.get_tipo_display }} · {{ componente.get_criticita_display }}</div>
+                          <div class="meta">{% translate "IP" %}: {{ componente.indirizzo_ip|default:"N/D" }}</div>
+                          <div class="meta">{% translate "Interconnessioni multiple (mesh) - vista descrittiva" %}</div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+
+                {# ===================== LAYOUT: FLAT ===================== #}
+                {% elif architettura_key == 'FLAT' %}
+                  <div class="layout-flat">
+                    <div class="flat">
+                      {% for componente in componenti_critici %}
+                        <div class="topo-node {% if componente.criticita == 'ALTA' %}is-high{% elif componente.criticita == 'MEDIA' %}is-med{% else %}is-low{% endif %}">
+                          <div class="title">{{ componente.nome_componente }}</div>
+                          <div class="meta">{{ componente.get_tipo_display }} · {{ componente.get_criticita_display }}</div>
+                          <div class="meta">{% translate "IP" %}: {{ componente.indirizzo_ip|default:"N/D" }}</div>
+                          <div class="meta">{% translate "Stesso livello logico (flat) - vista descrittiva" %}</div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+
+                {# ===================== DEFAULT ===================== #}
+                {% else %}
+                  <div class="topo-grid">
+                    {% for componente in componenti_critici %}
+                      <div class="topo-node {% if componente.criticita == 'ALTA' %}is-high{% elif componente.criticita == 'MEDIA' %}is-med{% else %}is-low{% endif %}">
+                        <div class="title">{{ componente.nome_componente }}</div>
+                        <div class="meta">{{ componente.get_tipo_display }} · {{ componente.get_criticita_display }}</div>
+                        <div class="meta">{% translate "IP" %}: {{ componente.indirizzo_ip|default:"N/D" }}</div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+              {% else %}
+                <div class="alert alert-secondary small text-center mb-0">
+                  {% translate "Nessun componente con criticità Alta/Media registrato. Se vuoi, aumenta la criticità su un nodo per farlo comparire qui." %}
+                </div>
+              {% endif %}
+
+            </div>
+
+          {% else %}
+            <div class="alert alert-warning small mb-0">
+              {% translate "Salva i componenti di rete per visualizzare la topologia." %}
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between mt-4 border-top pt-3">
+    <a href="{% url 'csirt_dashboard' %}?azienda_id={{ azienda.pk }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i> {% translate "Torna a Dashboard CSIRT" %}
+    </a>
+
+    {% if not is_referente %}
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-save me-1"></i> {% translate "Salva Tutta la Configurazione" %}
+      </button>
+    {% endif %}
+  </div>
+
+  {% if is_referente %}
+    <div class="alert alert-info mt-3 text-center">
+      {% translate "Modalità Sola Lettura: Solo il Consulente può modificare questi dati." %}
+    </div>
+  {% endif %}
+
+</form>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+<!-- ✅ Funzione export PDF (Stampa → Salva come PDF) -->
+<script>
+function exportTopologiaPDF() {
+  const $card = $('#topologia-card');
+  if ($card.length) {
+    const offsetTop = $card.offset().top;
+    $('html, body').stop(true).animate({ scrollTop: Math.max(0, offsetTop - 20) }, 200, function() {
+      window.print();
+    });
+  } else {
+    window.print();
+  }
+}
+</script>
+
+<script>
+(function($){
+  $(function(){
+
+    $('#network-config-form')
+      .find('input:not([type="checkbox"]):not([type="submit"]), select, textarea')
+      .each(function(){
+        if (!$(this).hasClass('form-control')) $(this).addClass('form-control');
+      });
+
+    const $formsetContainer = $('#componenti-formset-container');
+    const $totalFormsInput  = $('#id_componenti-TOTAL_FORMS');
+    let totalForms = parseInt($totalFormsInput.val()) || 0;
+
+    const templateHtmlRaw = $('#empty-form-template').html() || '';
+
+    let savedCount = $('#componenti-riepilogo-list tr').length || 0;
+    let newFormsCount = 0;
+
+    function hideDeleteField($scope){
+      $scope.find('input[name$="-DELETE"]').each(function(){
+        const $p = $(this).closest('p');
+        if ($p.length) $p.hide();
+        else $(this).hide();
+      });
+    }
+
+    function initFormNode($node){
+      $node.find('input:not([type="checkbox"]):not([type="submit"]), select, textarea').addClass('form-control');
+      hideDeleteField($node);
+
+      $node.find('.remove-componente-row').off('click').on('click', function(){
+        handleRemove($(this).closest('.componente-form-row'));
+      });
+    }
+
+    function refreshNewFormTitles(){
+      let idx = 0;
+      $formsetContainer.find('.componente-form-row.new-form:visible').each(function(){
+        const visualNumber = savedCount + idx + 1;
+        $(this).find('.component-title').first().text(`{% translate "Componente" %} #${visualNumber}`);
+        idx++;
+      });
+    }
+
+    function handleRemove($row){
+      const idInput     = $row.find('input[name$="-id"]');
+      const deleteInput = $row.find('input[name$="-DELETE"]');
+
+      if (idInput.length && idInput.val()) {
+        if (deleteInput.length) deleteInput.prop('checked', true);
+        $row.hide();
+        savedCount = Math.max(0, savedCount - 1);
+        refreshNewFormTitles();
+      } else {
+        $row.remove();
+        newFormsCount = Math.max(0, newFormsCount - 1);
+        totalForms = Math.max(0, totalForms - 1);
+        $totalFormsInput.val(totalForms);
+        refreshNewFormTitles();
+      }
+    }
+
+    $('#add-component-row').on('click', function(){
+      if (!templateHtmlRaw) return;
+
+      const nextIndex = totalForms;
+      const newHtml = templateHtmlRaw.replace(/__prefix__/g, nextIndex);
+
+      const $new = $('<div class="componente-form-row card card-body mb-3 new-form"></div>').html(newHtml);
+
+      const visualNumber = savedCount + newFormsCount + 1;
+      $new.find('.component-title').first().text(`{% translate "Componente" %} #${visualNumber}`);
+
+      hideDeleteField($new);
+
+      $formsetContainer.append($new);
+      initFormNode($new);
+
+      newFormsCount++;
+      totalForms++;
+      $totalFormsInput.val(totalForms);
+
+      $new.hide().slideDown(200, function(){
+        const offsetTop = $new.offset().top;
+        $('html, body').stop(true).animate({ scrollTop: Math.max(0, offsetTop - 90) }, 250);
+      });
+    });
+
+    $formsetContainer.find('.componente-form-row').each(function(){
+      initFormNode($(this));
+    });
+
+    // nasconde i form salvati, si aprono solo con “Dettagli/Modifica”
+    $formsetContainer.find('.componente-form-row[data-saved="true"]').hide();
+
+    // lascia visibili gli errori
+    $formsetContainer.find('.border-danger').removeClass('d-none').show();
+
+    $('.btn-details').off('click').on('click', function(){
+      const pk = $(this).data('pk');
+      const $btn = $(this);
+      const $currentForm = $formsetContainer.find('.componente-form-row[data-pk="' + pk + '"]');
+      if (!$currentForm.length) return;
+
+      const isVisible = $currentForm.is(':visible');
+
+      $formsetContainer
+        .find('.componente-form-row[data-saved="true"]')
+        .not($currentForm)
+        .stop(true, true)
+        .slideUp(200);
+
+      $('.btn-details .toggle-icon').removeClass('bi-chevron-up').addClass('bi-chevron-down');
+
+      if (isVisible) {
+        $currentForm.stop(true, true).slideUp(200);
+        $btn.find('.toggle-icon').removeClass('bi-chevron-up').addClass('bi-chevron-down');
+      } else {
+        $currentForm.stop(true, true).slideDown(200, function(){
+          const offsetTop = $currentForm.offset().top;
+          $('html, body').stop(true).animate({ scrollTop: Math.max(0, offsetTop - 90) }, 250);
+        });
+        $btn.find('.toggle-icon').removeClass('bi-chevron-down').addClass('bi-chevron-up');
+      }
+    });
+
+    totalForms = parseInt($totalFormsInput.val()) || totalForms;
+    refreshNewFormTitles();
+  });
+})(jQuery);
+</script>
+
+{% endblock content %}

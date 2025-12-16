@@ -1,0 +1,54 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{{ test_obj.titolo }}{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-primary">
+    <div class="card-header bg-primary text-white">
+        <h2 class="h4 mb-0">{{ test_obj.titolo }}</h2>
+    </div>
+    <div class="card-body p-4">
+        <p class="lead">{% translate "Seleziona una risposta per ogni domanda. Punteggio minimo per superare:" %} {{ test_obj.punteggio_minimo }}%.</p>
+        <hr>
+
+        <form action="{% url 'submit_test' test_obj.id %}" method="post">
+            {% csrf_token %}
+            
+            {% for domanda in domande %}
+                <div class="mb-4 p-3 border rounded">
+                    <p class="fw-bold fs-5">{{ forloop.counter }}. {{ domanda.testo }}</p>
+                    
+                    {% for risposta in domanda.risposte.all %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" 
+                               name="domanda_{{ domanda.id }}" 
+                               id="risposta_{{ risposta.id }}" 
+                               value="{{ risposta.id }}" required>
+                        <label class="form-check-label" for="risposta_{{ risposta.id }}">
+                            {{ risposta.testo }}
+                        </label>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">{% translate "Nessuna risposta disponibile per questa domanda." %}</p>
+                    {% endfor %}
+                </div>
+            {% empty %}
+                <div class="alert alert-warning">
+                    {% translate "Questo quiz non ha ancora nessuna domanda configurata." %}
+                </div>
+            {% endfor %}
+
+            {% if domande %}
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">{% translate "Invia Test" %}</button>
+            </div>
+            {% endif %}
+        </form>
+
+        <div class="mt-4">
+            <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="btn btn-outline-secondary">{% translate "Torna indietro" %}</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

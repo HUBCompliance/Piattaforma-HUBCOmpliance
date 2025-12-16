@@ -1,0 +1,135 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ corso.titolo }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_studente' %}">{% translate "Dashboard" %}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ corso.titolo }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h1 class="h3">{{ corso.titolo }}</h1>
+                <p class="lead">{{ corso.descrizione|safe }}</p>
+            </div>
+        </div>
+
+        <h2 class="h4 mb-3">{% translate "Moduli del Corso" %}</h2>
+
+        <div class="accordion" id="accordionModuli">
+            {% for item in moduli_list %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-{{ item.modulo.id }}">
+                    <button class="accordion-button {% if not item.is_sbloccato %}collapsed{% endif %}" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#collapse-{{ item.modulo.id }}" 
+                            aria-expanded="{% if item.is_sbloccato %}true{% else %}false{% endif %}" 
+                            aria-controls="collapse-{{ item.modulo.id }}"
+                            {% if not item.is_sbloccato %}disabled{% endif %}>
+                        
+                        {% if item.is_completato %}
+                            <i class="bi bi-check-circle-fill me-2 fs-5 text-success"></i>
+                        {% elif item.is_sbloccato %}
+                            <i class="bi bi-play-circle-fill me-2 fs-5 text-primary"></i>
+                        {% else %}
+                            <i class="bi bi-lock-fill me-2 fs-5 text-muted"></i>
+                        {% endif %}
+                        
+                        <span class="fw-bold">{{ item.modulo.titolo }}</span>
+                    </button>
+                </h2>
+                <div id="collapse-{{ item.modulo.id }}" 
+                     class="accordion-collapse collapse {% if item.is_sbloccato %}show{% endif %}" 
+                     aria-labelledby="heading-{{ item.modulo.id }}" 
+                     data-bs-parent="#accordionModuli">
+                    
+                    <div class="accordion-body">
+                        <p>{{ item.modulo.descrizione|safe }}</p>
+                        
+                        <ul class="list-group list-group-flush mb-3">
+                            {% for media in item.media_items %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>
+                                        {% if media.icon_type == 'youtube' %}
+                                            <i class="bi bi-youtube me-2 fs-5 text-danger"></i>
+                                            <a href="{{ media.link_esterno }}" target="_blank">{{ media.titolo }}</a>
+                                        
+                                        {% elif media.icon_type == 'pdf' %}
+                                            <i class="bi bi-file-earmark-pdf-fill me-2 fs-5 text-danger"></i>
+                                            <a href="{{ media.file.url }}" target="_blank">{{ media.titolo }}</a>
+
+                                        {% elif media.icon_type == 'video' %}
+                                            <i class="bi bi-camera-video-fill me-2 fs-5 text-primary"></i>
+                                            <a href="{{ media.file.url }}" target="_blank">{{ media.titolo }}</a>
+                                            
+                                        {% else %}
+                                            <i class="bi bi-file-earmark-text-fill me-2 fs-5 text-secondary"></i>
+                                            <a href="{{ media.file.url }}" target="_blank">{{ media.titolo }}</a>
+                                        {% endif %}
+                                    </span>
+                                    <span class="badge bg-light text-dark">{% translate "Contenuto" %}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                        {% if not item.is_completato %}
+                            {% if item.ha_quiz %}
+                                <a href="{% url 'take_test' item.modulo.quiz_verifica.id %}" class="btn btn-primary">
+                                    {% translate "Inizia Quiz di Verifica" %}
+                                </a>
+                            {% else %}
+                                <form action="{% url 'completa_modulo' item.modulo.id %}" method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success">
+                                        {% translate "Segna come completato" %}
+                                    </button>
+                                </form>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-success p-2">{% translate "Completato" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="card shadow-sm mt-4 border-primary">
+            <div class="card-body p-4 text-center">
+                
+                {% if attestato_ottenuto %}
+                    <h3 class="h4">{% translate "Corso Completato!" %}</h3>
+                    <p>{% translate "Hai completato con successo questo corso. Scarica il tuo attestato." %}</p>
+                    <a href="{% url 'genera_attestato_pdf' attestato_ottenuto.id %}" class="btn btn-lg btn-success" target="_blank">
+                        <i class="bi bi-download me-1"></i>
+                        {% translate "Scarica Attestato" %}
+                    </a>
+                
+                {% elif tutti_moduli_completati and test_finale %}
+                    <h3 class="h4">{{ test_finale.titolo }}</h3>
+                    <p>{% translate "Hai completato tutti i moduli! Ora puoi accedere al test finale." %}</p>
+                    <a href="{% url 'take_test' test_finale.id %}" class="btn btn-lg btn-primary">
+                        {% translate "Inizia il Test Finale" %}
+                    </a>
+
+                {% elif tutti_moduli_completati and not test_finale %}
+                    <p>{% translate "Stiamo generando il tuo attestato... Ricarica la pagina." %}</p>
+
+                {% else %}
+                    <h3 class="h4">{% translate "Completa tutti i moduli" %}</h3>
+                    <p>{% translate "Devi completare tutti i moduli del corso prima di poter accedere alla valutazione finale o all'attestato." %}</p>
+                {% endif %}
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

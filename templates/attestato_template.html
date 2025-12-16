@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Attestato di Completamento</title>
+    <style>
+        @page {
+            size: A4 landscape; /* Orizzontale */
+            margin: 1.5cm;
+        }
+        
+        html, body {
+            height: 100%; 
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            color: #333;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            border: 10px solid {{ config.colore_bordo|default:"#005a9c" }}; 
+            padding: 40px;
+            height: 90%; 
+            box-sizing: border-box;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .logo-container {
+            position: absolute;
+            top: 40px; 
+            left: 40px;
+        }
+
+        .logo-container img {
+            max-height: 60px; /* Logo ancora più piccolo */
+            max-width: 150px; 
+            object-fit: contain;
+            display: block;
+        }
+
+        h1 {
+            font-size: 30px;
+            color: {{ config.colore_titolo|default:"#005a9c" }}; 
+            margin-bottom: 20px;
+            line-height: 1.2;
+            text-align: center;
+        }
+        
+        h2 {
+            font-size: 22px;
+            font-weight: 300;
+            margin-bottom: 10px;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        .studente-name {
+            font-size: 34px;
+            font-weight: bold;
+            color: #000;
+            margin: 20px 0;
+            border-bottom: 2px solid #ccc;
+            display: inline-block;
+            padding-bottom: 5px;
+            text-align: center;
+        }
+        
+        .corso-name {
+            font-size: 20px;
+            font-style: italic;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 14px;
+            color: #777;
+            text-align: center;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        {% if logo_base64 %}
+        <div class="logo-container">
+            <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo">
+        </div>
+        {% endif %}
+
+        <h1>{{ config.titolo|default:"ATTESTATO DI COMPLETAMENTO" }}</h1>
+        <h2>{{ config.testo_introduzione|default:"Si certifica che" }}</h2>
+        
+        
+        <div class="studente-name">
+            {% if studente.first_name or studente.last_name %}
+                {{ studente.first_name }} {{ studente.last_name }}
+            {% else %}
+                {{ studente.username }}
+            {% endif %}
+        </div>
+
+        
+        <h2>{{ config.testo_principale|default:"ha completato con successo il corso" }}</h2>
+        
+        <div class="corso-name">
+            "{{ corso.titolo }}"
+        </div>
+
+        <div class="footer">
+            Data Emissione: {{ attestato.data_emissione|date:"d/m/Y" }}
+            <br>
+            Punteggio: {{ attestato.punteggio_ottenuto|floatformat:0 }}%
+        </div>
+    </div>
+</body>
+</html>

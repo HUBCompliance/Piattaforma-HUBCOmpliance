@@ -1,0 +1,209 @@
+{% extends "base_studente.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "Riepilogo CSIRT (Referente)" %}{% endblock %}
+
+{% block extra_head %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h1 class="h3 mb-0">{% translate "Riepilogo Modulo CSIRT (NIS2)" %}</h1>
+        <p class="text-muted">{% translate "Monitoraggio e azioni rapide per" %} <strong>{{ azienda.nome }}</strong>.</p>
+    </div>
+</div>
+
+{% include "includes/messages.html" %}
+
+<div class="row g-4">
+    
+    {# === COLONNA SINISTRA: RIEPILOGO STATO E AZIONI === #}
+    <div class="col-lg-6">
+        
+        {# CARD 1: DATI REFERENTE (Solo Lettura) #}
+        <div class="card shadow-sm mb-4 border-danger border-3 border-start">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">{% translate "Dati Referente Designato" %}</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row small">
+                    <dt class="col-sm-6 fw-bold">{% translate "Referente Designato" %}:</dt>
+                    <dd class="col-sm-6">{{ referente_csirt.ref_nome }} {{ referente_csirt.ref_cognome }}</dd>
+                    
+                    <dt class="col-sm-6 fw-bold">{% translate "Ruolo Aziendale" %}:</dt>
+                    <dd class="col-sm-6">{{ referente_csirt.ref_ruolo|default:"Non definito" }}</dd>
+                    
+                    <dt class="col-sm-6 fw-bold">{% translate "Email Reperibilità" %}:</dt>
+                    <dd class="col-sm-6">{{ referente_csirt.ref_email }}</dd>
+                    
+                    <dt class="col-sm-6 fw-bold">{% translate "Telefono H24" %}:</dt>
+                    <dd class="col-sm-6">{{ referente_csirt.ref_telefono|default:"N/A" }}</dd>
+
+                    <dt class="col-sm-6 fw-bold">{% translate "Nomina Documentata" %}:</dt>
+                    <dd class="col-sm-6">
+                        {% if referente_csirt.competenze_documentate %}
+                            <span class="badge bg-success">{% translate "Sì" %}</span>
+                        {% else %}
+                            <span class="badge bg-warning">{% translate "No/In attesa" %}</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+
+                <hr class="mt-4">
+                <h6 class="small fw-bold">{% translate "Azioni Immediate" %}</h6>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'csirt_notifica_create' %}" class="btn btn-danger">
+                        <i class="bi bi-plus-circle"></i> {% translate "Registra Nuova Notifica Incidente" %}
+                    </a>
+                    <a href="{% url 'configurazione_rete_view' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-diagram-3"></i> {% translate "Visualizza Configurazione Rete" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        {# CARD 2: TEMPISTICHE NIS2 #}
+        <div class="card shadow-sm mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">{% translate "Tempistiche Notifiche (NIS2 Art. 25)" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-striped table-sm mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="text-danger fw-bold small" style="width: 20%">{% translate "Entro 24 ore" %}</td>
+                            <td class="small">{% translate "Prima notifica (early warning) allo CSIRT." %}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-warning fw-bold small">{% translate "Entro 72 ore" %}</td>
+                            <td class="small">{% translate "Aggiornamento e valutazione preliminare (tipo e impatto stimato)." %}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-success fw-bold small">{% translate "Entro 1 mese" %}</td>
+                            <td class="small">{% translate "Notifica finale (report conclusivo) con causa radice e azioni correttive." %}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+    
+    {# === COLONNA DESTRA: REGISTRO NOTIFICHE E GRAFICO === #}
+    <div class="col-lg-6">
+        
+        {# CARD 3: LISTA NOTIFICHE E GRAFICO #}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0 text-dark">{% translate "Stato Incidenti" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="position-relative" style="height:260px;">
+                    <canvas id="csirtDoughnut"></canvas>
+                </div>
+                <div class="small text-muted text-center mt-2 mb-4">
+                    {% translate "Distribuzione per stato / Aggiornato in base alle notifiche registrate." %}
+                </div>
+
+                {# LISTA COMPATTA #}
+                {% if notifiche %}
+                    <h6 class="small fw-bold border-bottom pb-2">{% translate "Registro Notifiche Attive" %}</h6>
+                    <ul class="list-group list-group-flush small">
+                        {% for notifica in notifiche %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-bold">{{ notifica.titolo_incidente }}</h6>
+                                    <small class="text-muted">{% translate "Data Incidente" %}: {{ notifica.data_incidente|date:"d M Y H:i" }}</small><br>
+                                    <span class="badge bg-secondary">{{ notifica.get_stato_display }}</span>
+                                </div>
+                                <div class="text-end">
+                                    <a href="{% url 'csirt_notifica_dettaglio' pk=notifica.pk %}" class="btn btn-sm btn-outline-info">
+                                        {% translate "Dettaglio" %}
+                                    </a>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted small text-center py-3">{% translate "Nessuna notifica registrata." %}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+    </div>
+    
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    
+    // Applica stili Bootstrap a tutti gli input/select/textarea non gestiti da check o radio
+    document.querySelectorAll('.card-body input:not([type="checkbox"]):not([type="hidden"]):not([type="submit"]), .card-body select, .card-body textarea').forEach(function(el) {
+        if (!el.classList.contains('form-control')) {
+            el.classList.add('form-control');
+        }
+    });
+
+    // ===== GRAFICO CIAMBELLA (FIXED) =====
+    const el = document.getElementById("csirtDoughnut");
+    if (el) {
+        if (typeof Chart === "undefined") {
+            el.parentElement.innerHTML = '<div class="alert alert-warning small">Chart.js non caricato</div>';
+        } else {
+            // Nota: Riferimento a dati_grafico_stati_json fornito dalla vista Python
+            const raw = "{{ dati_grafico_stati_json|default:'{}'|escapejs }}";
+            let dataObj = {};
+            try { 
+                dataObj = JSON.parse(raw); 
+            } catch (e) {
+                console.error("Errore nel parsing del JSON per il grafico:", e);
+                el.parentElement.innerHTML = '<div class="alert alert-danger small">Errore nel caricamento dei dati del grafico.</div>';
+                return;
+            }
+
+            const labels = Object.keys(dataObj);
+            const values = Object.values(dataObj);
+            const hasData = values.reduce((a,b)=>a+b,0) > 0;
+
+            // Mappatura colori per gli stati (Tradotti per la legenda)
+            const colorMap = {
+                '{% translate "Aperta" %}': 'rgb(255, 193, 7)', 
+                '{% translate "In Risposta/Gestione" %}': 'rgb(13, 110, 253)', 
+                '{% translate "Notificata ACN" %}': 'rgb(40, 167, 69)', 
+                '{% translate "Chiusa" %}': 'rgb(108, 117, 125)', 
+                '{% translate "Nessun dato" %}': 'rgb(220, 220, 220)'
+            };
+            
+            const backgroundColors = labels.map(label => colorMap[label] || 'rgb(220, 53, 69)');
+
+            new Chart(el, {
+                type: "doughnut",
+                data: {
+                    labels: hasData ? labels : ["{% translate 'Nessun dato' %}"],
+                    datasets: [{ 
+                        data: hasData ? values : [1],
+                        backgroundColor: hasData ? backgroundColors : ['rgb(220, 220, 220)'],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "65%",
+                    plugins: {
+                        legend: { position: "bottom" }
+                    }
+                }
+            });
+        }
+    }
+    // Nessuna logica AI/JQuery per il Referente (sola lettura)
+
+});
+</script>
+{% endblock content %}

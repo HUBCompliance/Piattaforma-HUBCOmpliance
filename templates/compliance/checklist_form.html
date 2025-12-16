@@ -1,0 +1,72 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{{ titolo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ titolo_pagina }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 mb-2">{{ titolo_pagina }}</h1>
+                <p class="lead text-muted">{% translate "Per il trattamento:" %} {{ trattamento.nome_trattamento }}</p>
+                
+                <p>{% translate "Rispondi 'Sì' o 'No' alle seguenti domande per calcolare il livello di rischio." %}</p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <hr>
+                    
+                    {% for item in domande_list %}
+                    <div class="mb-4 p-3 border rounded">
+                        <p class="fw-bold fs-5">{{ item.domanda.testo }}</p>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" 
+                                   name="domanda_{{ item.domanda.id }}" 
+                                   id="domanda_{{ item.domanda.id }}_si" 
+                                   value="Sì" 
+                                   {% if item.risposta_attuale == True %}checked{% endif %}
+                                   required>
+                            <label class="form-check-label" for="domanda_{{ item.domanda.id }}_si">
+                                {% translate "Sì" %}
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" 
+                                   name="domanda_{{ item.domanda.id }}" 
+                                   id="domanda_{{ item.domanda.id }}_no" 
+                                   value="No"
+                                   {% if item.risposta_attuale == False %}checked{% endif %}
+                                   required>
+                            <label class="form-check-label" for="domanda_{{ item.domanda.id }}_no">
+                                {% translate "No" %}
+                            </label>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="alert alert-warning">
+                        {% translate "Nessuna domanda della checklist è stata ancora configurata dall'amministratore." %}
+                    </div>
+                    {% endfor %}
+                    
+                    <hr class="my-4">
+                    
+                    {% if domande_list %}
+                    <button type="submit" class="btn btn-primary btn-lg">{% translate "Calcola Rischio e Salva" %}</button>
+                    {% endif %}
+                    <a href="{% url 'dashboard_compliance' %}" class="btn btn-outline-secondary btn-lg">{% translate "Torna al Cruscotto" %}</a>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

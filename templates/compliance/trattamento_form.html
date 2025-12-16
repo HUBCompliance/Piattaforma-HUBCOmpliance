@@ -1,0 +1,81 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{{ titolo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 mb-4">{{ titolo_pagina }}</h1>
+                
+                {% if sottotitolo_pagina %}
+                    <p class="lead text-muted">{{ sottotitolo_pagina }}</p>
+                {% endif %}
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    {% if ai_suggestion %}
+                        <div class="alert alert-info mt-3">
+                            <h6 class="alert-heading"><i class="bi bi-lightbulb"></i> Risposta Assistente AI</h6>
+                            <p>{{ ai_suggestion|linebreaks }}</p>
+                            
+                            <button type="button" 
+                                    class="btn btn-sm btn-primary"
+                                    onclick="document.getElementById('id_finalita').value = '{{ ai_suggestion|escapejs }}';">
+                                Applica Suggerimento al Campo Sotto
+                            </button>
+                        </div>
+                        <hr class="my-4">
+                    {% endif %}
+                    
+                    {% for field in form %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-bold">{{ field.label }}
+                                {% if field.field.required %}
+                                    <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+                            
+                            {% if field.name == 'finalita' %}
+                                {{ field }}
+                                
+                                <div class="d-flex align-items-center mt-2">
+                                    <button type="submit" name="generate_ai_suggestions" class="btn btn-secondary btn-sm me-3">
+                                        <i class="bi bi-robot me-2"></i> Suggerisci Finalità con AI
+                                    </button>
+                                    
+                                    <small class="text-muted border p-2 rounded bg-light small">
+                                        Analizza i campi <span class="fw-bold">Categorie di Dati</span> e <span class="fw-bold">Soggetti Interessati</span> per generare una bozza di finalità legale (Art. 6/9 GDPR). 
+                                        Inserisci i due dati e premi il tasto.
+                                    </small>
+                                </div>
+                                
+                            {% elif field.name == 'categorie_dati' or field.name == 'soggetti_interessati' or field.name == 'destinatari_esterni' %}
+                                <div class="border p-3 rounded bg-white">
+                                    {{ field.as_ul }}
+                                </div>
+                            
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
+
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">{{ field.errors.as_text }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    
+                    <hr class="my-4">
+                    
+                    <button type="submit" class="btn btn-success btn-lg">{% translate "Salva e Continua alla Checklist" %}</button>
+                    <a href="{% url 'dashboard_compliance' %}" class="btn btn-outline-secondary btn-lg">{% translate "Annulla" %}</a>
+                    
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

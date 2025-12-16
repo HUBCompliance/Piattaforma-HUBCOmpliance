@@ -1,0 +1,70 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Dettaglio" %}: {{ documento.nome }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'documento_list' %}">{% translate "Gestione Documentale" %}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ documento.nome }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ documento.nome }}</h5>
+                
+                {% if documento.categoria.nome != "Attestati di Formazione" %}
+                <a href="{% url 'versione_create' documento.pk %}" class="btn btn-success btn-sm">
+                    <i class="bi bi-upload me-1"></i> {% translate "Carica Nuova Versione" %}
+                </a>
+                {% endif %}
+                </div>
+            <div class="card-body p-4">
+                <p><strong>{% translate "Categoria" %}:</strong> {{ documento.categoria.nome }}</p>
+                {% if documento.creato_da_template %}
+                <p><strong>{% translate "Creato da Template" %}:</strong> {{ documento.creato_da_template.nome }}</p>
+                {% endif %}
+
+                <h6 class="mt-4">{% translate "Cronologia Versioni" %}</h6>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">{% translate "Versione (File)" %}</th>
+                            <th scope="col">{% translate "Note" %}</th>
+                            <th scope="col">{% translate "Caricato da" %}</th>
+                            <th scope="col">{% translate "Data" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for versione in versioni_list %}
+                        <tr>
+                            <td>
+                                <a href="{{ versione.file.url }}" target="_blank">
+                                    <i class="bi bi-file-earmark-arrow-down"></i>
+                                    {% if versione.file.name|slice:"20:" %}...{% endif %}{{ versione.file.name|slice:"-50" }}
+                                </a>
+                            </td>
+                            <td>{{ versione.note_versione|default:"-" }}</td>
+                            <td>{{ versione.caricato_da.get_full_name|default:versione.caricato_da.username|default:"-" }}</td>
+                            <td>{{ versione.data_caricamento|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">
+                                {% translate "Nessuna versione caricata." %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

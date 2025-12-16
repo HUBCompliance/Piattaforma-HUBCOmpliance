@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}Importa Studenti da Excel{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Importa Studenti da File Excel</h1>
+
+    {% if messages %}
+        <ul class="messagelist">{% for message in messages %}
+            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}</ul>
+    {% endif %}
+
+    <form action="" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-row">
+            <p>Carica un file Excel (.xlsx o .xls) per creare profili Studente in massa.</p>
+            <p>Il file DEVE contenere le colonne (in minuscolo o maiuscolo): <strong>Nome, Cognome, Email, Azienda</strong>.</p>
+        </div>
+        
+        <fieldset class="module aligned wide">
+            <div class="form-row field-excel_file">
+                <div>
+                    <label class="required" for="id_excel_file">File Excel:</label>
+                    <input type="file" name="excel_file" id="id_excel_file" required>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Importa Studenti" class="default">
+            <a href="javascript:history.back()" class="button cancel">{% translate 'Annulla' %}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}
+    {% translate "Dettaglio TIA" %} - {{ tia.fornitore }}
+{% endblock %}
+
+{% block content %}
+    
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center mb-3">
+            <h1 class="h3">{% translate "TIA" %}: {{ tia.fornitore }} ({{ tia.paese_destinazione.nome }})</h1>
+            
+            <div class="d-flex gap-2">
+                 {# Pulsante AI - Visibile solo se l'esito NON è VERDE #}
+                {% if tia.esito_calcolato != 'VERDE' %}
+                    <a href="{% url 'tia_generate_doc_ai' pk=tia.pk %}" class="btn btn-warning">
+                        <i class="bi bi-robot me-1"></i> {% translate "Genera Misure Suppl. (AI)" %}
+                    </a>
+                {% endif %}
+                <a href="{% url 'tia_list' %}" class="btn btn-outline-secondary">{% translate "Torna alle Valutazioni" %}</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">{% translate "Risultato e Rischio" %}</h5>
+                </div>
+                <div class="card-body">
+                    
+                    <dl class="row">
+                        <dt class="col-sm-5 text-uppercase">{% translate "Esito Calcolato" %}:</dt>
+                        <dd class="col-sm-7">
+                            {% if tia.esito_calcolato == 'VERDE' %}
+                                <span class="badge bg-success">{% translate "SICURO" %}</span>
+                            {% elif tia.esito_calcolato == 'GIALLO' %}
+                                <span class="badge bg-warning text-dark">{% translate "RISCHIO MEDIO" %}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{% translate "BLOCCATO/RISCHIO ALTO" %}</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-5">{% translate "Paese" %}:</dt>
+                        <dd class="col-sm-7">{{ tia.paese_destinazione.nome }} ({{ tia.paese_destinazione.gruppo_tia }})</dd>
+
+                        <dt class="col-sm-5">{% translate "Misure adottate" %}:</dt>
+                        <dd class="col-sm-7">
+                            {% if tia.crittografia_riposo %}Sì{% else %}No{% endif %}, 
+                            {% if tia.crittografia_transito %}Sì{% else %}No{% endif %}
+                        </dd>
+                    </dl>
+                    
+                    <h6 class="mt-4">{% translate "Note e Azioni" %}</h6>
+                    <p>{{ tia.note_finali|default:"Nessuna nota finale." }}</p>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">{% translate "Dettagli Fornitore" %}</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-5">{% translate "Fornitore" %}:</dt>
+                        <dd class="col-sm-7">{{ tia.fornitore }}</dd>
+
+                        <dt class="col-sm-5">{% translate "Dati Trattati" %}:</dt>
+                        <dd class="col-sm-7">{{ tia.descrizione_dati }}</dd>
+                        
+                        {% if tia.paese_destinazione.gruppo_tia == 'USA' %}
+                        <dt class="col-sm-5">{% translate "Certificato DPF?" %}:</dt>
+                        <dd class="col-sm-7">{% if tia.usa_framework %}Sì{% else %}No{% endif %}</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Il Mio Profilo" %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        
+        <a href="{% url dashboard_url %}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> {% translate "Torna alla Dashboard" %}
+        </a>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 mb-4">{% translate "Gestione Profilo" %}</h1>
+
+                <ul class="nav nav-tabs" id="profiloTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="personale-tab" data-bs-toggle="tab" data-bs-target="#personale-pane" type="button" role="tab" aria-controls="personale-pane" aria-selected="true">{% translate "Profilo Personale" %}</button>
+                    </li>
+                    
+                    {% if azienda_form %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="azienda-tab" data-bs-toggle="tab" data-bs-target="#azienda-pane" type="button" role="tab" aria-controls="azienda-pane" aria-selected="false">{% translate "Profilo Azienda" %}</button>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <div class="tab-content" id="profiloTabContent">
+                    
+                    <div class="tab-pane fade show active" id="personale-pane" role="tabpanel" aria-labelledby="personale-tab" tabindex="0">
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <h4 class="h5 mt-4">{% translate "Informazioni Personali" %}</h4>
+                                <p class="text-muted">{% translate "Queste informazioni appariranno sui tuoi attestati." %}</p>
+                                
+                                <form method="post" novalidate>
+                                    {% csrf_token %}
+                                    {% for field in profilo_form %}
+                                        <div class="mb-3">
+                                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors.as_text }}</div>{% endif %}
+                                        </div>
+                                    {% endfor %}
+                                    <button type="submit" name="submit_profilo" class="btn btn-primary mt-3">{% translate "Salva Profilo" %}</button>
+                                </form>
+                            </div>
+
+                            <div class="col-md-6 mt-4 mt-md-0 border-md-start ps-md-4">
+                                <h4 class="h5 mt-4">{% translate "Cambia Password" %}</h4>
+                                <p class="text-muted">{% translate "Lascia vuoto se non vuoi cambiare la password." %}</p>
+
+                                <form method="post" novalidate>
+                                    {% csrf_token %}
+                                    {% for field in password_form %}
+                                        <div class="mb-3">
+                                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text|safe }}</small>{% endif %}
+                                            {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors.as_text }}</div>{% endif %}
+                                        </div>
+                                    {% endfor %}
+                                    <button type="submit" name="submit_password" class="btn btn-primary mt-3">{% translate "Cambia Password" %}</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if azienda_form %}
+                    <div class="tab-pane fade" id="azienda-pane" role="tabpanel" aria-labelledby="azienda-tab" tabindex="0">
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <h4 class="h5 mt-4">{% translate "Dati Aziendali" %}</h4>
+                            <p class="text-muted">{% translate "Queste informazioni saranno usate per la fatturazione e i contatti." %}</p>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="{{ azienda_form.nome.id_for_label }}" class="form-label">{{ azienda_form.nome.label }}</label>
+                                    {{ azienda_form.nome }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ azienda_form.partita_iva.id_for_label }}" class="form-label">{{ azienda_form.partita_iva.label }}</label>
+                                    {{ azienda_form.partita_iva }}
+                                </div>
+                                <div class="col-md-12 mt-3">
+                                    <label for="{{ azienda_form.indirizzo.id_for_label }}" class="form-label">{{ azienda_form.indirizzo.label }}</label>
+                                    {{ azienda_form.indirizzo }}
+                                </div>
+                                <hr class="my-4">
+                                <h4 class="h5">{% translate "Contatti" %}</h4>
+                                <div class="col-md-6 mt-3">
+                                    <label for="{{ azienda_form.referente_aziendale.id_for_label }}" class="form-label">{{ azienda_form.referente_aziendale.label }}</label>
+                                    {{ azienda_form.referente_aziendale }}
+                                </div>
+                                <div class="col-md-6 mt-3">
+                                    <label for="{{ azienda_form.contatto_email.id_for_label }}" class="form-label">{{ azienda_form.contatto_email.label }}</label>
+                                    {{ azienda_form.contatto_email }}
+                                </div>
+                                <div class="col-md-6 mt-3">
+                                    <label for="{{ azienda_form.numero_referente.id_for_label }}" class="form-label">{{ azienda_form.numero_referente.label }}</label>
+                                    {{ azienda_form.numero_referente }}
+                                </div>
+                                <div class="col-md-6 mt-3">
+                                    <label for="{{ azienda_form.sito_web.id_for_label }}" class="form-label">{{ azienda_form.sito_web.label }}</label>
+                                    {{ azienda_form.sito_web }}
+                                </div>
+                            </div>
+                            
+                            <button type="submit" name="submit_azienda" class="btn btn-primary mt-4">{% translate "Salva Dati Azienda" %}</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

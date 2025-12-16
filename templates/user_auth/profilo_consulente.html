@@ -1,0 +1,86 @@
+{% extends "base_studente.html" %} 
+{% load i18n static %}
+
+{% block title %}Profilo Consulente{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h1 class="mb-4">Gestione Profilo - {{ user.ruolo|title }} ({{ user.azienda.nome|default:"Nessuna Azienda" }})</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-3">Modifica Dati Personali</h2>
+                
+                <form action="" method="post" id="profilo-form">
+                    {% csrf_token %}
+                    
+                    {% for field in profilo_form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="alert alert-danger p-2 mt-1"><small>{{ error }}</small></div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="d-grid">
+                        <button type="submit" name="submit_profilo" class="btn btn-primary">Salva Modifiche Profilo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-3">Cambia Password</h2>
+                
+                <form action="" method="post" id="password-form">
+                    {% csrf_token %}
+                    
+                    {% for field in password_form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    {% if password_form.errors %}
+                        <div class="alert alert-danger p-2">
+                            {% for error in password_form.non_field_errors %}
+                                <small>{{ error }}</small><br>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="d-grid">
+                        <button type="submit" name="submit_password" class="btn btn-secondary">Cambia Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Aggiunge la classe 'form-control' a tutti i campi input nel contesto
+    document.querySelectorAll('#profilo-form input:not([type="hidden"]), #password-form input:not([type="hidden"])').forEach(function(el) {
+        if (!el.classList.contains('form-control')) {
+            el.classList.add('form-control');
+        }
+    });
+</script>
+{% endblock %}

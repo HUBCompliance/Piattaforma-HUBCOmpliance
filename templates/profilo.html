@@ -1,0 +1,88 @@
+{% extends "base_studente.html" %}
+{% load i18n static %}
+
+{% block title %}Il Mio Profilo{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-3">Modifica Profilo</h2>
+                
+                <form action="" method="post" id="profilo-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ profilo_form.first_name.id_for_label }}" class="form-label">Nome:</label>
+                        {{ profilo_form.first_name }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ profilo_form.last_name.id_for_label }}" class="form-label">Cognome:</label>
+                        {{ profilo_form.last_name }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ profilo_form.email.id_for_label }}" class="form-label">Email:</label>
+                        {{ profilo_form.email }}
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" name="submit_profilo" class="btn btn-primary">Salva Modifiche Profilo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-3">Cambia Password</h2>
+                
+                <form action="" method="post" id="password-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ password_form.old_password.id_for_label }}" class="form-label">Vecchia Password:</label>
+                        {{ password_form.old_password }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ password_form.new_password1.id_for_label }}" class="form-label">Nuova Password:</label>
+                        {{ password_form.new_password1 }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ password_form.new_password2.id_for_label }}" class="form-label">Conferma Nuova Password:</label>
+                        {{ password_form.new_password2 }}
+                    </div>
+                    
+                    {% if password_form.errors %}
+                        <div class="alert alert-danger p-2">
+                            {% for field in password_form %}
+                                {% for error in field.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in password_form.non_field_errors %}
+                                <small>{{ error }}</small><br>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="d-grid">
+                        <button type="submit" name="submit_password" class="btn btn-secondary">Cambia Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Aggiunge la classe 'form-control' a tutti i campi input
+    document.querySelectorAll('#profilo-form input, #password-form input').forEach(function(el) {
+        if (el.type !== 'hidden' && el.type !== 'submit') {
+            el.classList.add('form-control');
+        }
+    });
+</script>
+{% endblock %}

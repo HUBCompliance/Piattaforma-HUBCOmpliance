@@ -1,0 +1,54 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{{ titolo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class.="breadcrumb-item active" aria-current="page">{{ titolo_pagina }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 mb-2">{{ titolo_pagina }}</h1>
+                <p class="lead text-muted">{% translate "Compila questa checklist per aggiornare il 'Semaforo' nel cruscotto." %}</p>
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <hr>
+                    
+                    {% for gruppo in campi_raggruppati %}
+                        <h4 class="mt-4">{{ gruppo.categoria.nome }}</h4>
+                        
+                        {% for field in gruppo.campi %}
+                            <div class.="mb-3 p-3 border rounded">
+                                <p class="fw-bold">{{ field.label }}</p>
+                                <div id="{{ field.auto_id }}">
+                                    {% for radio in field %}
+                                    <div class="form-check form-check-inline">
+                                        {{ radio.tag }}
+                                        <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                    
+                    <hr class="my-4">
+                    
+                    <button type="submit" class="btn btn-primary btn-lg">{% translate "Salva Checklist" %}</button>
+                    <a href="{% url 'dashboard_compliance' %}" class="btn btn-outline-secondary btn-lg">{% translate "Torna al Cruscotto" %}</a>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

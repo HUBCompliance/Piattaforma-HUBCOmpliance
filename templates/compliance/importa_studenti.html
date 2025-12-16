@@ -1,0 +1,45 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Importa Studenti" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'gestione_formazione' %}">{% translate "Gestione Formazione" %}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{% translate "Importa Studenti (Excel)" %}</li>
+            </ol>
+        </nav>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 mb-4">{% translate "Importa Studenti (Excel)" %}</h1>
+                
+                <p>{% translate "Carica un file .xlsx o .xls con le seguenti colonne (l'ordine non è importante, ma i nomi sì):" %}</p>
+                <ul class="list-group mb-3">
+                    <li class="list-group-item"><strong>nome</strong> ({% translate "obbligatorio" %})</li>
+                    <li class="list-group-item"><strong>cognome</strong> ({% translate "obbligatorio" %})</li>
+                    <li class="list-group-item"><strong>email</strong> ({% translate "obbligatorio" %})</li>
+                    <li class="list-group-item">numero telefono ({% translate "opzionale" %})</li>
+                </ul>
+                <p class="text-muted">{% translate "Nota: Tutti gli studenti importati saranno automaticamente assegnati alla tua azienda" %} ({{ request.user.azienda.nome }}) {% translate "e riceveranno un'email per impostare la loro password." %}</p>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="excel_file" class="form-label">{% translate "Seleziona file Excel" %}</label>
+                        <input class="form-control" type="file" id="excel_file" name="excel_file" accept=".xls,.xlsx" required>
+                    </div>
+                    <hr>
+                    <button type="submit" class="btn btn-primary btn-lg">{% translate "Carica e Importa" %}</button>
+                    <a href="{% url 'gestione_formazione' %}" class="btn btn-outline-secondary btn-lg">{% translate "Annulla" %}</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
