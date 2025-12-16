@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database locale (IMPORTANTE: non caricare il tuo DB di test con dati sensibili)
+*.sqlite3
+db.sqlite3
+
+# Ambienti virtuali
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# File di configurazione sensibili
+.env
+*.env
+
+# Media e Statici (in genere non si caricano i file caricati dagli utenti)
+media/
+staticfiles/
+static_root/
+
+# Log e file temporanei
+*.log
+local_settings.py
+.DS_Store
+Thumbs.db
+
+# Cartelle specifiche di IDE o editor
+.visualstudio/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# File di backup o temporanei di sistema
+*.bak
+*~
