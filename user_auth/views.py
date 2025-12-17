@@ -61,8 +61,21 @@ def login_view(request):
     if request.method == 'POST':
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
-            login(request, form.get_user())
-            return redirect('/') 
+            user = form.get_user()
+            login(request, user)
+
+            # Smista l'utente alla dashboard corretta in base al ruolo
+            if user.ruolo == 'CONSULENTE':
+                return redirect('dashboard_consulente')
+            if user.ruolo == 'REFERENTE':
+                return redirect('dashboard_compliance')
+            if user.ruolo == 'STUDENTE':
+                return redirect('dashboard_studente')
+
+            # Fallback per eventuali altri ruoli (es. staff)
+            if user.is_staff:
+                return redirect('admin:index')
+            return redirect('/')
     return render(request, 'registration/login.html', {'form': LoginForm()})
 
 def logout_view(request):
@@ -75,16 +88,21 @@ def register_view(request):
 @login_required
 def dashboard_studente(request):
     user = request.user
-    
-    # Se Mario è loggato ma il suo ruolo nel DB è REFERENTE, 
-    # verrà mandato alla compliance (che mostra le aziende).
-    if user.ruolo == 'REFERENTE': 
+
+    # Smistamento robusto per evitare redirect errati
+    if user.ruolo == 'CONSULENTE':
+        return redirect('dashboard_consulente')
+    if user.ruolo == 'REFERENTE':
         return redirect('dashboard_compliance')
-    
+    if user.is_staff:
+        return redirect('admin:index')
+    if user.ruolo != 'STUDENTE':
+        return redirect('login')
+
     # Se è uno STUDENTE, deve caricare questo:
     iscrizioni = IscrizioneCorso.objects.filter(studente=user).select_related('corso')
     return render(request, 'dashboard_studente.html', {
-        'iscrizioni_list': iscrizioni, 
+        'iscrizioni_list': iscrizioni,
         'studente_name': user.username
     })
 
