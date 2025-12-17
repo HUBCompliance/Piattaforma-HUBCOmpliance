@@ -52,8 +52,31 @@ def trigger_set_password_email(request, user):
     except:
         return False
 
-def is_profilo_user(user): 
+def is_profilo_user(user):
     return user.is_authenticated and user.ruolo in ['STUDENTE', 'REFERENTE', 'CONSULENTE']
+
+
+def is_consulente_user(user):
+    """Ritorna True solo se l'utente è marcato come consulente *e* ha un profilo Consulente valido."""
+    if user.ruolo != 'CONSULENTE':
+        return False
+    try:
+        # Evita redirect errati di studenti che hanno il ruolo impostato in modo non coerente
+        return bool(user.consulente)
+    except Consulente.DoesNotExist:
+        return False
+
+
+def get_dashboard_redirect(user):
+    """Restituisce il nome della dashboard in base al ruolo dell'utente."""
+    if is_consulente_user(user):
+        return 'dashboard_consulente'
+    if user.ruolo == 'REFERENTE':
+        return 'dashboard_compliance'
+    if user.is_staff:
+        return 'admin:index'
+    # Tutti gli altri ruoli (o valori inattesi) vengono trattati come Studenti
+    return 'dashboard_studente'
 
 # --- VISTE PRINCIPALI ---
 
@@ -65,17 +88,7 @@ def login_view(request):
             login(request, user)
 
             # Smista l'utente alla dashboard corretta in base al ruolo
-            if user.ruolo == 'CONSULENTE':
-                return redirect('dashboard_consulente')
-            if user.ruolo == 'REFERENTE':
-                return redirect('dashboard_compliance')
-            if user.ruolo == 'STUDENTE':
-                return redirect('dashboard_studente')
-
-            # Fallback per eventuali altri ruoli (es. staff)
-            if user.is_staff:
-                return redirect('admin:index')
-            return redirect('/')
+            return redirect(get_dashboard_redirect(user))
     return render(request, 'registration/login.html', {'form': LoginForm()})
 
 def logout_view(request):
@@ -90,14 +103,9 @@ def dashboard_studente(request):
     user = request.user
 
     # Smistamento robusto per evitare redirect errati
-    if user.ruolo == 'CONSULENTE':
-        return redirect('dashboard_consulente')
-    if user.ruolo == 'REFERENTE':
-        return redirect('dashboard_compliance')
-    if user.is_staff:
-        return redirect('admin:index')
-    if user.ruolo != 'STUDENTE':
-        return redirect('login')
+    dashboard_target = get_dashboard_redirect(user)
+    if dashboard_target != 'dashboard_studente':
+        return redirect(dashboard_target)
 
     # Se è uno STUDENTE, deve caricare questo:
     iscrizioni = IscrizioneCorso.objects.filter(studente=user).select_related('corso')
@@ -116,7 +124,7 @@ def profilo_utente(request):
     elif user.ruolo == 'REFERENTE':
         form_class, template = ReferenteUpdateForm, 'user_auth/profilo_referente.html'
     else:
-        form_class, template = ProfiloStudenteForm, 'profilo_studente_placeholder.html'
+        form_class, template = ProfiloStudenteForm, 'profilo_studente.html'
 
     p_form = form_class(instance=user)
     pw_form = PasswordChangeForm(user=user)

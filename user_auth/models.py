@@ -85,7 +85,7 @@ class Azienda(models.Model):
 class CustomUser(AbstractUser):
     RUOLI_CHOICES = (
         ('ADMIN', 'Amministratore di Sistema'),
-        ('CONSULENTE', 'Consulente / DPO Esterno'),
+        ('CONSULENTE', 'Consulente'),
         ('REFERENTE', 'Referente Privacy Aziendale'),
         ('STUDENTE', 'Dipendente / Utente E-learning'),
     )
