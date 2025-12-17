@@ -56,27 +56,17 @@ def is_profilo_user(user):
     return user.is_authenticated and user.ruolo in ['STUDENTE', 'REFERENTE', 'CONSULENTE']
 
 
-def is_consulente_user(user):
-    """Ritorna True solo se l'utente è marcato come consulente *e* ha un profilo Consulente valido."""
-    if user.ruolo != 'CONSULENTE':
-        return False
-    try:
-        # Evita redirect errati di studenti che hanno il ruolo impostato in modo non coerente
-        return bool(user.consulente)
-    except Consulente.DoesNotExist:
-        return False
-
-
 def get_dashboard_redirect(user):
     """Restituisce il nome della dashboard in base al ruolo dell'utente."""
-    if is_consulente_user(user):
+    if user.ruolo == 'CONSULENTE':
         return 'dashboard_consulente'
     if user.ruolo == 'REFERENTE':
         return 'dashboard_compliance'
+    if user.ruolo == 'STUDENTE':
+        return 'dashboard_studente'
     if user.is_staff:
         return 'admin:index'
-    # Tutti gli altri ruoli (o valori inattesi) vengono trattati come Studenti
-    return 'dashboard_studente'
+    return 'login'
 
 # --- VISTE PRINCIPALI ---
 
