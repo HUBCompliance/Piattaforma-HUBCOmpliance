@@ -114,7 +114,7 @@ def profilo_utente(request):
     elif user.ruolo == 'REFERENTE':
         form_class, template = ReferenteUpdateForm, 'user_auth/profilo_referente.html'
     else:
-        form_class, template = ProfiloStudenteForm, 'profilo_studente_placeholder.html'
+        form_class, template = ProfiloStudenteForm, 'profilo_studente.html'
 
     p_form = form_class(instance=user)
     pw_form = PasswordChangeForm(user=user)
