@@ -1,43 +1,120 @@
+import requests
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import CustomUser as User, Azienda, Consulente, Prodotto, AdminReferente, NotaAzienda
-from .forms import ReferenteStudenteForm # Importiamo i form se necessario
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
+from django.urls import reverse
 
+# Strumenti per il Link Monouso di Sicurezza
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+
+# Import dai modelli
+from .models import CustomUser as User, Azienda, Consulente, Prodotto, AdminReferente, NotaAzienda
+from courses.models import ImpostazioniSito
+
+# Import per Excel
+from import_export import resources, fields
+from import_export.admin import ImportExportActionModelAdmin
+from import_export.widgets import ForeignKeyWidget
 
 # ==============================================================================
-# 1. ADMIN PER IL MODELLO AZIENDA (Correzione di E108, E116)
+# 0. RISORSA PER IMPORTAZIONE UTENTI (Excel + EmailJS Dinamico)
+# ==============================================================================
+
+class UserResource(resources.ModelResource):
+    azienda = fields.Field(
+        column_name='azienda',
+        attribute='azienda',
+        widget=ForeignKeyWidget(Azienda, 'nome')
+    )
+
+    class Meta:
+        model = User
+        import_id_fields = ('username',)
+        fields = ('username', 'email', 'first_name', 'last_name', 'ruolo', 'azienda')
+        skip_unchanged = True
+        report_skipped = True
+
+    def after_import_row(self, row, row_result, **kwargs):
+        """
+        Eseguito dopo la creazione dell'utente. Genera il link monouso 
+        e invia la mail tramite EmailJS.
+        """
+        instance = row_result.instance
+        
+        if instance and instance.email:
+            try:
+                # 1. Recupero configurazione
+                config = ImpostazioniSito.objects.first()
+                if not config or not config.email_service_id:
+                    print("⚠️ Configurazione EmailJS non trovata in Impostazioni Sito.")
+                    return
+
+                # 2. Sicurezza: Se l'utente non ha password, ne impostiamo una "inutilizzabile"
+                # Questo rende il token di sicurezza generato da Django stabile e valido.
+                if not instance.password:
+                    instance.set_unusable_password()
+                    instance.save()
+
+                # 3. Generazione Token Monouso (UID + TOKEN)
+                uid = urlsafe_base64_encode(force_bytes(instance.pk))
+                token = default_token_generator.make_token(instance)
+                
+                # 4. Costruzione URL CORRETTO (Salto la pagina mail e vado alla password)
+                domain = "http://127.0.0.1:8000"  # Cambia in https://tuodominio.it in produzione
+                action_url = f"{domain}/reset/{uid}/{token}/"
+                
+                print(f"DEBUG - Link generato per {instance.username}: {action_url}")
+
+                # 5. Preparazione dati per EmailJS
+                template_params = {
+                    "to_email": instance.email,
+                    "user_name": f"{instance.first_name} {instance.last_name}" if instance.first_name else instance.username,
+                    "ruolo": instance.ruolo,
+                    "azienda_nome": instance.azienda.nome if instance.azienda else "Non specificata",
+                    "data_invio": timezone.now().strftime("%d/%m/%Y"),
+                    "action_url": action_url, 
+                }
+
+                payload = {
+                    "service_id": config.email_service_id,
+                    "template_id": config.email_template_id,
+                    "user_id": config.email_public_key,
+                    "accessToken": config.email_private_key,
+                    "template_params": template_params
+                }
+
+                # 6. Invio API
+                response = requests.post(
+                    "https://api.emailjs.com/api/v1.0/email/send", 
+                    json=payload, 
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    print(f"✅ Email di attivazione inviata a: {instance.email}")
+                else:
+                    print(f"❌ Errore EmailJS: {response.text}")
+
+            except Exception as e:
+                print(f"⚠️ Errore critico dopo importazione riga: {e}")
+
+# ==============================================================================
+# 1. ADMIN PER IL MODELLO AZIENDA
 # ==============================================================================
 
 @admin.register(Azienda)
 class AziendaAdmin(admin.ModelAdmin):
-    # E108/E116: Correzione dei campi list_display e list_filter
-    list_display = (
-        'nome', 
-        'p_iva',  # Corretto da 'partita_iva' a 'p_iva'
-        'is_active', 
-        'data_creazione'
-        # I campi di contratto ('stato_contratto', 'data_scadenza_contratto') sono stati rimossi o non esistono
-    )
-    
-    list_filter = (
-        'is_active', 
-        'data_creazione',
-        # Rimosso il filtro per 'stato_contratto'
-    )
-    
+    list_display = ('nome', 'p_iva', 'is_active', 'data_creazione')
+    list_filter = ('is_active', 'data_creazione')
     search_fields = ('nome', 'p_iva')
-    
-    # === AGGIUNTA: Gestione del campo M2M manager_users ===
-    filter_horizontal = ('manager_users',) # E019: Correzione: manager_users è l'unico M2M
+    filter_horizontal = ('manager_users',)
     
     fieldsets = (
-        ('Dettagli Azienda', {
-            'fields': ('nome', 'p_iva', 'indirizzo')
-        }),
-        ('Gestione e Stato', {
-            'fields': ('is_active', 'manager_users')
-        }),
+        ('Dettagli Azienda', {'fields': ('nome', 'p_iva', 'indirizzo')}),
+        ('Gestione e Stato', {'fields': ('is_active', 'manager_users')}),
         ('Configurazione Moduli Attivi', {
             'fields': (
                 ('mod_cruscotto', 'mod_storico_audit'),
@@ -49,61 +126,43 @@ class AziendaAdmin(admin.ModelAdmin):
     )
 
 # ==============================================================================
-# 2. ADMIN PER IL MODELLO CONSULENTE (Correzione di E019, E108)
+# 2. ALTRI MODELLI
 # ==============================================================================
 
 @admin.register(Consulente)
 class ConsulenteAdmin(admin.ModelAdmin):
-    # E108: Correzione: il campo 'telefono' non è direttamente su Consulente, ma su User
-    list_display = (
-        'user', 
-        # Rimosso 'telefono' che è un campo su CustomUser
-    )
-    
-    search_fields = ('user__username', 'user__first_name', 'user__last_name')
-    
-    # E019: Rimosso 'aziende_gestite' da filter_horizontal perché non è un campo su questo modello
-    # La gestione delle aziende avviene tramite AziendaAdmin.
-    # filter_horizontal = ('aziende_gestite',) <-- Rimosso
-
-# ==============================================================================
-# 3. ADMIN PER IL MODELLO NOTAAZIENDA (Correzione di E035, E108)
-# ==============================================================================
+    list_display = ('user',)
 
 @admin.register(NotaAzienda)
 class NotaAziendaAdmin(admin.ModelAdmin):
-    # E108: Corretto list_display per usare i campi esistenti (assumo 'data_creazione' e 'testo')
-    list_display = (
-        'azienda', 
-        'testo', # 'creata_da' è stato rimosso o non è un campo su NotaAzienda
-        'data_creazione' 
-    )
-    
-    # E035: Corretto readonly_fields per usare i campi esistenti
-    readonly_fields = ('data_creazione',) # 'creata_da' è stato rimosso o non esiste
-    
-    list_filter = ('azienda',)
+    list_display = ('azienda', 'testo', 'data_creazione')
+    readonly_fields = ('data_creazione',)
+
+@admin.register(Prodotto)
+class ProdottoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'prezzo', 'is_active')
 
 # ==============================================================================
-# 4. ADMIN PER IL MODELLO USER e PRODOTTO
+# 3. ADMIN PER IL MODELLO USER (Import/Export)
 # ==============================================================================
 
-class CustomUserAdmin(BaseUserAdmin):
-    # Aggiungi 'ruolo' e 'azienda' ai campi utente
+class CustomUserAdmin(BaseUserAdmin, ImportExportActionModelAdmin):
+    resource_class = UserResource
+    
     fieldsets = BaseUserAdmin.fieldsets + (
         (_('Ruoli e Associazione Azienda'), {'fields': ('ruolo', 'azienda', 'is_dpo')}),
     )
     list_display = BaseUserAdmin.list_display + ('ruolo', 'azienda')
     list_filter = BaseUserAdmin.list_filter + ('ruolo', 'azienda')
 
+# Registrazione dell'utente
+try:
+    admin.site.unregister(User)
+except admin.sites.NotRegistered:
+    pass
+
 admin.site.register(User, CustomUserAdmin)
 
-@admin.register(Prodotto)
-class ProdottoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'prezzo', 'is_active')
-    list_filter = ('is_active',)
-
-# Placeholder per AdminReferente (se necessario)
 if 'AdminReferente' in globals():
     @admin.register(AdminReferente)
     class AdminReferenteAdmin(admin.ModelAdmin):

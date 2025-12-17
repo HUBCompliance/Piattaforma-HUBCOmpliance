@@ -1,18 +1,25 @@
+# ==============================================================================
+# IMPORTAZIONI CORRETTE
+# ==============================================================================
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone 
 from django.utils.translation import gettext_lazy as _
-from courses.models import Corso, IscrizioneCorso, Modulo, ProgressoModulo, Quiz, Domanda, Risposta, Attestato, ImpostazioniSito
-from user_auth.models import CustomUser as User, Azienda, Consulente
-from .models import (
-    Trattamento, DomandaChecklist, RispostaChecklist,
-    TemplateDocumento, CategoriaDocumento, DocumentoAziendale, VersioneDocumento,
-    Incidente, RichiestaInteressato,
-    AuditCategoria, AuditDomanda, AuditRisposta, AuditSession,
-    Compito, Asset, Software, RuoloPrivacy, Paese, ValutazioneTIA, Videosorveglianza,
-    ReferenteCSIRT, NotificaIncidente, AllegatoNotifica, # MODELLO CRITICO AGGIUNTO
-    ConfigurazioneRete, ComponenteRete 
+from django.contrib import messages
+from django.db.models import Sum, Count, Q, Prefetch 
+from django.http import HttpResponse, JsonResponse 
+from django.db import transaction 
+from django.forms.models import inlineformset_factory 
+from django import forms 
+from django.urls import reverse_lazy
+
+# Import dai tuoi modelli (Assicurati che i percorsi siano esatti)
+from courses.models import (
+    Corso, IscrizioneCorso, Modulo, ProgressoModulo, 
+    Quiz, Domanda, Risposta, Attestato, ImpostazioniSito
 )
+from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto
+from .models import * # O i modelli specifici che hai elencato
 from .forms import (
     TrattamentoForm, DocumentoAziendaleForm, VersioneDocumentoForm,
     IncidenteForm, RichiestaInteressatoForm, AuditChecklistForm,
@@ -29,7 +36,6 @@ from django.db import transaction
 from django.forms.models import inlineformset_factory 
 from django import forms 
 import pandas as pd 
-from user_auth.views import trigger_set_password_email 
 import io
 from docx import Document
 from docx.shared import Pt, Cm 

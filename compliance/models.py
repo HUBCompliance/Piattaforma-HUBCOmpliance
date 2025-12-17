@@ -11,6 +11,8 @@ from user_auth.models import CustomUser as User, Azienda, Consulente
 class CategoriaDati(models.Model):
     nome = models.CharField(max_length=100)
     def __str__(self): return self.nome
+verbose_name_plural =("Audit Categoria")
+verbose_name =("Audit Categoria")
 
 class SoggettoInteressato(models.Model):
     nome = models.CharField(max_length=100)
@@ -36,6 +38,8 @@ class Trattamento(models.Model):
     punteggio_rischio_calcolato = models.IntegerField(default=0)
     dpia_necessaria = models.BooleanField(default=False)
     creato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    verbose_name_plural =("Trattamento")
+    verbose_name =("Trattamenti")
     
     def __str__(self): return self.nome_trattamento
 

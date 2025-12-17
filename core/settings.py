@@ -25,6 +25,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles', 
     'django.contrib.sites',
+
+    'import_export',
     
     # Le tue app (ORDINE CORRETTO)
     'user_auth',                # Definisce User e Azienda

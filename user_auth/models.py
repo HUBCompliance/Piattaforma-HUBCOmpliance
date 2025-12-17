@@ -150,6 +150,9 @@ class AdminReferente(models.Model):
         
     def __str__(self):
         return f"Admin Referente: {self.user.username}"
+    class Meta:
+        verbose_name = _("Referente ADMIN")
+        verbose_name_plural = _("Referenti ADMIN")
         
 class NotaAzienda(models.Model):
     # Modello di placeholder per la classe NotaAzienda
@@ -159,6 +162,7 @@ class NotaAzienda(models.Model):
     
     class Meta:
         verbose_name = _("Nota Aziendale")
+        verbose_name_plural = _("Note Aziendali")
 
     def __str__(self):
         return f"Nota per {self.azienda.nome}"
