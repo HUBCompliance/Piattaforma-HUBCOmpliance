@@ -1,10 +1,11 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, SetPasswordForm, AuthenticationForm
 from django.utils.translation import gettext_lazy as _
-from django.contrib.auth import authenticate 
+from django.contrib.auth import authenticate
+from django.db.models import Q
 from .models import CustomUser as User, Azienda, Consulente
 from django.core.exceptions import ValidationError
-from compliance.models import Compito 
+from compliance.models import Compito
 
 
 # ==============================================================================
@@ -125,6 +126,29 @@ class ReferenteStudenteForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
         }
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if not email:
+            raise ValidationError(_("Email obbligatoria."))
+
+        qs = User.objects.filter(Q(username=email) | Q(email=email))
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+
+        if qs.exists():
+            raise ValidationError(_("Esiste già un utente con questa email."))
+
+        return email
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        email = self.cleaned_data.get('email', '').strip().lower()
+        instance.username = email
+        instance.email = email
+        if commit:
+            instance.save()
+        return instance
 
 
 class ReferenteUpdateForm(ReferenteStudenteForm):
