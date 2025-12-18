@@ -114,6 +114,7 @@ class AziendaAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Dettagli Azienda', {'fields': ('nome', 'p_iva', 'indirizzo')}),
+        ('Branding Aziendale', {'fields': ('logo_principale', 'logo_attestato')}),
         ('Gestione e Stato', {'fields': ('is_active', 'manager_users')}),
         ('Configurazione Moduli Attivi', {
             'fields': (
