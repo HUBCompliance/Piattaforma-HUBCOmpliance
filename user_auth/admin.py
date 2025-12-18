@@ -1,9 +1,10 @@
 import requests
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.sites.shortcuts import get_current_site
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-from django.urls import reverse
 
 # Strumenti per il Link Monouso di Sicurezza
 from django.contrib.auth.tokens import default_token_generator
@@ -22,6 +23,52 @@ from import_export.widgets import ForeignKeyWidget
 # ==============================================================================
 # 0. RISORSA PER IMPORTAZIONE UTENTI (Excel + EmailJS Dinamico)
 # ==============================================================================
+
+def build_password_action_url(user, request=None):
+    """Costruisce l'URL per impostare/reimpostare la password dell'utente."""
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+
+    if request:
+        current_site = get_current_site(request)
+        protocol = 'https' if request.is_secure() else 'http'
+        domain = f"{protocol}://{current_site.domain}"
+    else:
+        domain = getattr(settings, 'DEFAULT_DOMAIN', 'http://127.0.0.1:8000')
+
+    return f"{domain}/reset/{uid}/{token}/"
+
+
+def send_password_creation_email(user, action_url, config):
+    """Invia l'email con il link per impostare la password tramite EmailJS."""
+    template_params = {
+        "to_email": user.email,
+        "user_name": f"{user.first_name} {user.last_name}" if user.first_name else user.username,
+        "ruolo": user.ruolo,
+        "azienda_nome": user.azienda.nome if user.azienda else "Non specificata",
+        "data_invio": timezone.now().strftime("%d/%m/%Y"),
+        "action_url": action_url,
+    }
+
+    payload = {
+        "service_id": config.email_service_id,
+        "template_id": config.email_template_id,
+        "user_id": config.email_public_key,
+        "accessToken": config.email_private_key,
+        "template_params": template_params,
+    }
+
+    response = requests.post(
+        "https://api.emailjs.com/api/v1.0/email/send",
+        json=payload,
+        timeout=10,
+    )
+
+    if response.status_code == 200:
+        print(f"✅ Email di attivazione inviata a: {user.email}")
+    else:
+        print(f"❌ Errore EmailJS: {response.text}")
+
 
 class UserResource(resources.ModelResource):
     azienda = fields.Field(
@@ -46,57 +93,18 @@ class UserResource(resources.ModelResource):
         
         if instance and instance.email:
             try:
-                # 1. Recupero configurazione
                 config = ImpostazioniSito.objects.first()
                 if not config or not config.email_service_id:
                     print("⚠️ Configurazione EmailJS non trovata in Impostazioni Sito.")
                     return
 
-                # 2. Sicurezza: Se l'utente non ha password, ne impostiamo una "inutilizzabile"
-                # Questo rende il token di sicurezza generato da Django stabile e valido.
                 if not instance.password:
                     instance.set_unusable_password()
                     instance.save()
 
-                # 3. Generazione Token Monouso (UID + TOKEN)
-                uid = urlsafe_base64_encode(force_bytes(instance.pk))
-                token = default_token_generator.make_token(instance)
-                
-                # 4. Costruzione URL CORRETTO (Salto la pagina mail e vado alla password)
-                domain = "http://127.0.0.1:8000"  # Cambia in https://tuodominio.it in produzione
-                action_url = f"{domain}/reset/{uid}/{token}/"
-                
+                action_url = build_password_action_url(instance)
                 print(f"DEBUG - Link generato per {instance.username}: {action_url}")
-
-                # 5. Preparazione dati per EmailJS
-                template_params = {
-                    "to_email": instance.email,
-                    "user_name": f"{instance.first_name} {instance.last_name}" if instance.first_name else instance.username,
-                    "ruolo": instance.ruolo,
-                    "azienda_nome": instance.azienda.nome if instance.azienda else "Non specificata",
-                    "data_invio": timezone.now().strftime("%d/%m/%Y"),
-                    "action_url": action_url, 
-                }
-
-                payload = {
-                    "service_id": config.email_service_id,
-                    "template_id": config.email_template_id,
-                    "user_id": config.email_public_key,
-                    "accessToken": config.email_private_key,
-                    "template_params": template_params
-                }
-
-                # 6. Invio API
-                response = requests.post(
-                    "https://api.emailjs.com/api/v1.0/email/send", 
-                    json=payload, 
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    print(f"✅ Email di attivazione inviata a: {instance.email}")
-                else:
-                    print(f"❌ Errore EmailJS: {response.text}")
+                send_password_creation_email(instance, action_url, config)
 
             except Exception as e:
                 print(f"⚠️ Errore critico dopo importazione riga: {e}")
@@ -155,6 +163,26 @@ class CustomUserAdmin(BaseUserAdmin, ImportExportActionModelAdmin):
     )
     list_display = BaseUserAdmin.list_display + ('ruolo', 'azienda')
     list_filter = BaseUserAdmin.list_filter + ('ruolo', 'azienda')
+
+    def save_model(self, request, obj, form, change):
+        is_new = not change
+
+        if is_new and not obj.password:
+            obj.set_unusable_password()
+
+        super().save_model(request, obj, form, change)
+
+        if is_new and obj.email:
+            try:
+                config = ImpostazioniSito.objects.first()
+                if not config or not config.email_service_id:
+                    print("⚠️ Configurazione EmailJS non trovata in Impostazioni Sito.")
+                    return
+
+                action_url = build_password_action_url(obj, request=request)
+                send_password_creation_email(obj, action_url, config)
+            except Exception as e:
+                print(f"⚠️ Errore invio email dopo creazione utente singolo: {e}")
 
 # Registrazione dell'utente
 try:
