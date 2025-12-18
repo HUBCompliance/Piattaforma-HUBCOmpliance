@@ -140,6 +140,14 @@ class ReferenteStudenteForm(forms.ModelForm):
         model = User
         fields = ['first_name', 'last_name', 'email']
 
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Allinea sempre lo username all'email per rispettare il vincolo di unicità
+        instance.username = self.cleaned_data.get('email', instance.username)
+        if commit:
+            instance.save()
+        return instance
+
 # ==============================================================================
 # 8. FORMS PER CONFIGURAZIONE MODULI (Azienda)
 # ==============================================================================
