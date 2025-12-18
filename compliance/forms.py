@@ -141,26 +141,10 @@ class ReferenteStudenteForm(forms.ModelForm):
         model = User
         fields = ['first_name', 'last_name', 'email']
 
-    def clean_email(self):
-        email = (self.cleaned_data.get('email') or '').strip().lower()
-        if not email:
-            raise forms.ValidationError(_("Email obbligatoria."))
-
-        qs = User.objects.filter(Q(username=email) | Q(email=email))
-        if self.instance.pk:
-            qs = qs.exclude(pk=self.instance.pk)
-
-        if qs.exists():
-            raise forms.ValidationError(_("Esiste già un utente con questa email."))
-
-        return email
-
     def save(self, commit=True):
         instance = super().save(commit=False)
         # Allinea sempre lo username all'email per rispettare il vincolo di unicità
-        email = self.cleaned_data.get('email', '').strip().lower()
-        instance.username = email
-        instance.email = email
+        instance.username = self.cleaned_data.get('email', instance.username)
         if commit:
             instance.save()
         return instance
