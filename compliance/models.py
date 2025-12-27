@@ -1,6 +1,18 @@
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+# Assicurati che i tuoi modelli siano importati correttamente
+from user_auth.models import CustomUser as User, Azienda, Consulente
+
+# ==============================================================================
+# 0. PARAMETRI MONITORAGGIO TECNICO (NIS2)
+# ==============================================================================
+class ParametriMonitoraggio(models.Model):
+    azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE, related_name='monitoraggio_tecnico')
+    dominio_web = models.CharField(max_length=255, blank=True, help_text=_("Es: ferrari.it"))
+    prometheus_url = models.URLField(default="http://localhost:9090")
+    mod_monitoring_attivo = models.BooleanField(default=False)
+    def __str__(self): return f"Parametri NIS2 - {self.azienda.nome}"
 from user_auth.models import CustomUser as User, Azienda, Consulente
 
 # ==============================================================================
@@ -40,6 +52,8 @@ class Trattamento(models.Model):
     punteggio_rischio_calcolato = models.IntegerField(default=0)
     dpia_necessaria = models.BooleanField(default=False)
     creato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    verbose_name_plural =("Trattamento")
+    verbose_name =("Trattamenti")
 
     def __str__(self): return self.nome_trattamento
 
@@ -122,6 +136,13 @@ class AuditRisposta(models.Model):
 # ==============================================================================
 # 4. INCIDENTI E RICHIESTE
 # ==============================================================================
+
+class Compito(models.Model):
+    STATO_CHOICES = (('APERTO', 'Aperto'), ('IN_CORSO', 'In Corso'), ('COMPLETATO', 'Completato'))
+    PRIORITA_CHOICES = (('BASSA', 'Bassa'), ('MEDIA', 'Media'), ('ALTA', 'Alta'))
+    creato_da = models.ForeignKey(User, on_delete=models.CASCADE, related_name='compiti_creati')
+    aziende_assegnate = models.ManyToManyField(Azienda, blank=True)
+    is_global = models.BooleanField(default=False)
 class Incidente(models.Model):
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
     data_rilevamento = models.DateTimeField(default=timezone.now)
@@ -155,6 +176,40 @@ class Compito(models.Model):
     STATO_CHOICES = (('APERTO', 'Aperto'), ('IN_CORSO', 'In Corso'), ('COMPLETATO', 'Completato'))
     PRIORITA_CHOICES = (('BASSA', 'Bassa'), ('MEDIA', 'Media'), ('ALTA', 'Alta'))
 
+class ConfigurazioneRete(models.Model):
+    """ Modello per la configurazione di rete principale. """
+    ARCHITETTURA_CHOICES = [
+        ('STAR', 'Star'),
+        ('MESH', 'Mesh'),
+        ('HIERARCHICAL', 'Gerarchica'),
+        ('FLAT', 'Piatta')
+    ]
+    VPN_CHOICES = [
+        ('AZIENDA', 'Gestita Internamente'),
+        ('ESTERNA', 'Servizio Esterno'),
+        ('NONE', 'Non Usata')
+    ]
+    PATCH_CHOICES = [
+        ('AUTOMATICO', 'Automatico'),
+        ('MANUALE', 'Manuale Periodico'),
+        ('ASSENTE', 'Assente/No Policy')
+    ]
+
+    azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE, related_name='configurazione_rete', verbose_name=_("Azienda"))
+    tipo_architettura = models.CharField(max_length=50, choices=ARCHITETTURA_CHOICES, default='HIERARCHICAL', verbose_name=_("Tipo di Architettura di Rete"))
+    segmentazione_rete = models.TextField(verbose_name=_("Descrizione Segmentazione/VLAN"), blank=True, null=True)
+    firewall_utilizzato = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Modello/Nome Firewall"))
+    sistema_ids_ips = models.BooleanField(default=False, verbose_name=_("Sistema IDS/IPS Attivo"))
+    gestione_antivirus_centralizzata = models.BooleanField(default=False, verbose_name=_("Antivirus Centralizzato"))
+    gestione_vpn = models.CharField(max_length=50, choices=VPN_CHOICES, default='NONE', verbose_name=_("Gestione Accesso Remoto (VPN)"))
+    politica_patching = models.CharField(max_length=50, choices=PATCH_CHOICES, default='MANUALE', verbose_name=_("Politica di Patch Management"))
+
+    class Meta:
+        verbose_name = _("Configurazione di Rete")
+        verbose_name_plural = _("Configurazioni di Rete")
+
+    def __str__(self):
+        return f"Configurazione Rete per {self.azienda.nome}"
     titolo = models.CharField(max_length=200, verbose_name=_("Titolo Attività"))
     descrizione = models.TextField(blank=True, verbose_name=_("Descrizione/Dettaglio")) # RISOLVE IL FIELDERROR
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, null=True, blank=True)
@@ -165,6 +220,44 @@ class Compito(models.Model):
     data_scadenza = models.DateField(null=True, blank=True)
     is_global = models.BooleanField(default=False)
 
+class ComponenteRete(models.Model):
+    """ Modello per rappresentare i singoli device/nodi aggiunti come "caselle". """
+    TIPO_COMPONENT_CHOICES = [
+        ('DEVICE', 'Dispositivo Utente'),
+        ('SERVER', 'Server/Virtual Host'),
+        ('FIREWALL', 'Firewall/Router'),
+        ('PRINTER', 'Stampante/Scanner'),
+        ('HUB', 'Switch/Hub'),
+        ('OTHER', 'Altro Nodo')
+    ]
+
+    configurazione = models.ForeignKey(
+        ConfigurazioneRete,
+        on_delete=models.CASCADE,
+        related_name='componenti',
+        verbose_name=_("Configurazione Rete Madre")
+    )
+
+    nome_componente = models.CharField(max_length=100, verbose_name=_("Nome/Identificativo"))
+    tipo = models.CharField(max_length=50, choices=TIPO_COMPONENT_CHOICES, default='DEVICE', verbose_name=_("Tipo Componente"))
+    descrizione_funzione = models.TextField(blank=True, verbose_name=_("Funzione e Posizione"))
+    criticita = models.CharField(max_length=20, choices=[('BASSA', 'Bassa'), ('MEDIA', 'Media'), ('ALTA', 'Alta')], default='MEDIA', verbose_name=_("Criticità Sicurezza"))
+
+    # === CAMPO IP ===
+    indirizzo_ip = models.CharField(max_length=45, blank=True, null=True, verbose_name=_("Indirizzo IP/Subnet"))
+    # ===============================
+
+    class Meta:
+        verbose_name = _("Componente di Rete")
+        verbose_name_plural = _("Componenti di Rete")
+        ordering = ['tipo', 'nome_componente']
+
+    def __str__(self):
+        return self.nome_componente
+
+# ==============================================================================
+# 11. ASSET E SOFTWARE
+# ==============================================================================
     data_creazione = models.DateTimeField(auto_now_add=True)
     creato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -180,6 +273,15 @@ class Asset(models.Model):
     tipo_asset = models.CharField(max_length=50, default='PC')
     marca_modello = models.CharField(max_length=100)
     utente_assegnatario = models.CharField(max_length=100, blank=True)
+    reparto = models.CharField(max_length=100, blank=True)
+    luogo_fisico = models.CharField(max_length=100, blank=True)
+    tratta_dati_personali = models.BooleanField(default=True)
+    categoria_dati = models.CharField(max_length=50, choices=[('COMUNI', 'Comuni'), ('PARTICOLARI', 'Particolari'), ('GIUDIZIARI', 'Giudiziari')], default='COMUNI')
+    criticita = models.CharField(max_length=20, choices=[('BASSA', 'Bassa'), ('MEDIA', 'Media'), ('ALTA', 'Alta')], default='MEDIA')
+    disco_crittografato = models.BooleanField(default=False)
+    antivirus_installato = models.BooleanField(default=False)
+    stato = models.CharField(max_length=20, choices=[('IN_USO', 'In Uso'), ('DISMESSO', 'Dismesso'), ('MANUTENZIONE', 'In Manutenzione')], default='IN_USO')
+    codice_inventario = models.CharField(max_length=50, blank=True)
     criticita = models.CharField(max_length=20, default='MEDIA')
     stato = models.CharField(max_length=20, default='IN_USO')
 
@@ -194,10 +296,32 @@ class Software(models.Model):
 # ==============================================================================
 class RuoloPrivacy(models.Model):
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
+
+    # Corretto RUOLO_CHOICES con max_length sufficiente per RESPONSABILE_TRATTAMENTO
+    RUOLO_CHOICES = (
+        ('TITOLARE', 'Titolare del Trattamento'),
+        ('RESPONSABILE_TRATTAMENTO', 'Responsabile del Trattamento'),
+        ('DPO', 'DPO'),
+        ('REFERENTE', 'Referente Privacy'),
+        ('ADS', 'Amministratore Sistema'),
+        ('AUTORIZZATO', 'Autorizzato'),
+        ('ESTERNO', 'Resp. Esterno')
+    )
+    ruolo_tipo = models.CharField(max_length=30, choices=RUOLO_CHOICES, verbose_name=_("Tipo di Ruolo Privacy"))
+
+    # Campo per list_display (risolve E108)
     ruolo_tipo = models.CharField(max_length=30)
     nome_cognome = models.CharField(max_length=100)
     contatti = models.CharField(max_length=200, blank=True)
     atto_nomina = models.FileField(upload_to='nomine/', blank=True, null=True)
+
+    class Meta:
+        verbose_name = _("Ruolo Privacy")
+        verbose_name_plural = _("Ruoli Privacy")
+
+# ==============================================================================
+# 13. TIA (TRANSFER IMPACT ASSESSMENT)
+# ==============================================================================
 
 class Paese(models.Model):
     nome = models.CharField(max_length=100)
@@ -205,6 +329,34 @@ class Paese(models.Model):
 
 class ValutazioneTIA(models.Model):
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
+    fornitore = models.CharField(max_length=100)
+    paese_destinazione = models.ForeignKey(Paese, on_delete=models.SET_NULL, null=True)
+    descrizione_dati = models.TextField()
+    data_valutazione = models.DateField(auto_now_add=True)
+    compilato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    esito_calcolato = models.CharField(max_length=20, default='ROSSO')
+    note = models.TextField(blank=True)
+
+# ==============================================================================
+# 14. VIDEOSORVEGLIANZA
+# ==============================================================================
+
+class Videosorveglianza(models.Model):
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
+    nome_impianto = models.CharField(max_length=100, default="Impianto Principale")
+    scopo = models.CharField(max_length=200, default="Sicurezza Patrimonio")
+    numero_telecamere = models.IntegerField(default=1)
+    tempo_conservazione = models.CharField(max_length=50, choices=[('24H', '24 Ore'), ('48H', '48 Ore'), ('72H', '72 Ore'), ('7GG', '7 Giorni (Richiede accordo)')], default='24H')
+    cartelli_esposti = models.BooleanField(default=False)
+    accordo_sindacale = models.BooleanField(default=False)
+    autorizzazione_itl = models.BooleanField(default=False)
+    dvr_conforme = models.BooleanField(default=False)
+    stato_conformita = models.CharField(max_length=20, default='NON_CONFORME')
+    azioni_richieste = models.TextField(blank=True)
+    data_compilazione = models.DateField(auto_now_add=True)
+    compilato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    registrazione_attiva = models.BooleanField(default=True)
+
     paese_destinazione = models.ForeignKey(Paese, on_delete=models.CASCADE)
 
 class Videosorveglianza(models.Model):
@@ -215,6 +367,149 @@ class Videosorveglianza(models.Model):
 # 7. CSIRT (NIS2) E RETE
 # ==============================================================================
 class ReferenteCSIRT(models.Model):
+    """Modello per memorizzare la nomina del Referente CSIRT e i relativi dati."""
+    azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE, related_name='referente_csirt', verbose_name=_("Azienda"))
+    data_nomina = models.DateField(default=timezone.now, verbose_name=_("Data Nomina"))
+
+    pc_nome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Nome Punto di Contatto"), help_text="Chi effettua la designazione")
+    pc_cognome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Cognome Punto di Contatto"))
+    pc_email = models.EmailField(blank=True, null=True, verbose_name=_("Email Punto di Contatto"))
+
+    codice_ipa = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Codice IPA"), help_text="Solo per Pubbliche Amministrazioni")
+
+    referente_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='csirt_principal', verbose_name=_("Utente Sistema (Opzionale)"))
+
+    ref_nome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Nome Referente"))
+    ref_cognome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Cognome Referente"))
+    ref_cf = models.CharField(max_length=16, blank=True, null=True, verbose_name=_("Codice Fiscale Referente"))
+    ref_email = models.EmailField(blank=True, null=True, verbose_name=_("Email Referente (Istituzionale)"))
+    ref_telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("Telefono Reperibilità (H24)"))
+    ref_ruolo = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Ruolo Aziendale"), help_text="Es. CISO, IT Manager, Consulente Esterno")
+
+    sos1_nome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Nome Sostituto 1"))
+    sos1_cognome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Cognome Sostituto 1"))
+    sos1_cf = models.CharField(max_length=16, blank=True, null=True, verbose_name=_("CF Sostituto 1"))
+    sos1_email = models.EmailField(blank=True, null=True, verbose_name=_("Email Sostituto 1"))
+
+    sos2_nome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Nome Sostituto 2"))
+    sos2_cognome = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Cognome Sostituto 2"))
+    sos2_cf = models.CharField(max_length=16, blank=True, null=True, verbose_name=_("CF Sostituto 2"))
+    sos2_email = models.EmailField(blank=True, null=True, verbose_name=_("Email Sostituto 2"))
+
+    competenze_documentate = models.BooleanField(default=False, verbose_name=_("Competenza documentata"))
+    motivo_esterno = models.TextField(blank=True, null=True, verbose_name=_("Motivazione Scelta Esterna"))
+
+    def __str__(self):
+        return f"Referente CSIRT per {self.azienda.nome}"
+
+    class Meta:
+        verbose_name = _("Referente CSIRT (NIS2)")
+        verbose_name_plural = _("Gestione Referente CSIRT (NIS2)")
+
+class NotificaIncidente(models.Model):
+    # Tassonomia ACN (Esempio basato su ransomware, DDOS, ecc.)
+    CATEGORIA_CHOICES = (
+        ('RANSOMWARE', _('Ransomware')),
+        ('DDOS', _('Attacco DDOS')),
+        ('PHISHING', _('Phishing/Spear-Phishing')),
+        ('ACCESS_VIOLATION', _('Violazione di Accesso / Compromissione Account')),
+        ('MALWARE', _('Malware (Generico)')),
+    )
+
+    IMPATTO_CHOICES = (
+        ('CRITICO', _('Critico (Interruzione Totale)')),
+        ('ALTO', _('Alto (Servizi Essenziali Impattati)')),
+        ('MEDIO', _('Medio (Impatto su Servizi Secondari)')),
+        ('BASSO', _('Basso (Danno Minimo)')),
+    )
+
+    # Playbook: Riferimento ai documenti operativi (Appendice C ACN)
+    PLAYBOOK_CHOICES = (
+        ('RANSOMWARE_P', _('Playbook Ransomware')),
+        ('DDOS_P', _('Playbook DDOS')),
+        ('PHISHING_P', _('Playbook Phishing')),
+        ('GENERIC_P', _('Playbook Generico')),
+    )
+
+    STATO_CHOICES = (
+        ('APERTA', _('Aperta')),
+        ('IN_RISPOSTA', _('In Risposta/Gestione')),
+        ('NOTIFICATA', _('Notificata ACN')),
+        ('CHIUSA', _('Chiusa')),
+    )
+
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, related_name='notifiche_incidenti')
+    referente_csirt = models.ForeignKey(ReferenteCSIRT, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("Referente che ha notificato"))
+
+    titolo_incidente = models.CharField(max_length=255, verbose_name=_("Titolo Incidente NIS2"))
+    data_incidente = models.DateTimeField(verbose_name=_("Data e Ora Incidente"))
+    data_notifica = models.DateTimeField(null=True, blank=True, verbose_name=_("Data Notifica ACN"))
+    stato = models.CharField(max_length=20, choices=STATO_CHOICES, default='APERTA', verbose_name=_("Stato Notifica"))
+    descrizione_danno = models.TextField(verbose_name=_("Descrizione Danno/Impatto"))
+
+    # === NUOVI CAMPI DI CARATTERIZZAZIONE ACN/NIST (Punto 3) ===
+    categoria_incidente = models.CharField(
+        max_length=50,
+        choices=CATEGORIA_CHOICES,
+        default='MALWARE',
+        verbose_name=_("Categoria Incidente (Tassonomia ACN)")
+    )
+    impatto_stimato = models.CharField(
+        max_length=20,
+        choices=IMPATTO_CHOICES,
+        default='ALTO',
+        verbose_name=_("Impatto stimato (Operativo/Finanziario)")
+    )
+    # La Severità (o Criticità) è spesso una combinazione di categoria e impatto, ma la registriamo
+    severita_incidente = models.CharField(
+        max_length=20,
+        choices=IMPATTO_CHOICES, # Riutilizziamo la scala per semplicità
+        default='ALTO',
+        verbose_name=_("Severità/Criticità (Decisa dall'IR Team)")
+    )
+
+    playbook_associato = models.CharField(
+        max_length=50,
+        choices=PLAYBOOK_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name=_("Playbook di Risposta")
+    )
+    # =============================================================
+
+    # Campi esistenti:
+    valutazione_rischio = models.TextField(blank=True, null=True, verbose_name=_("Valutazione Rischio e Danno"))
+    azioni_correttive = models.TextField(blank=True, null=True, verbose_name=_("Azioni Correttive Adottate"))
+
+    def __str__(self):
+        return f"Notifica {self.titolo_incidente} - {self.azienda.nome}"
+
+    class Meta:
+        verbose_name = _("Notifica Incidente NIS2")
+        verbose_name_plural = _("Registro Notifiche NIS2")
+
+# ==============================================================================
+# 18. ALLEGATI PER NOTIFICHE INCIDENTI
+# ==============================================================================
+
+class AllegatoNotifica(models.Model):
+    """
+    Modello per gli allegati relativi a una Notifica Incidente specifica (es. log, screenshot).
+    """
+    notifica = models.ForeignKey(
+        NotificaIncidente,
+        on_delete=models.CASCADE,
+        related_name='allegati',
+        verbose_name=_("Notifica Incidente")
+    )
+    file = models.FileField(upload_to='csirt_allegati/', verbose_name=_("File Allegato"))
+    descrizione = models.CharField(max_length=255, blank=True, verbose_name=_("Descrizione"))
+    data_caricamento = models.DateTimeField(auto_now_add=True)
+    caricato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Allegato Notifica")
+        verbose_name_plural = _("Allegati Notifiche")
     azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE, related_name='ref_csirt_final')
     data_nomina = models.DateField(default=timezone.now)
     referente_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
