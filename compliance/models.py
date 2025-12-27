@@ -13,24 +13,28 @@ class ParametriMonitoraggio(models.Model):
     prometheus_url = models.URLField(default="http://localhost:9090")
     mod_monitoring_attivo = models.BooleanField(default=False)
     def __str__(self): return f"Parametri NIS2 - {self.azienda.nome}"
+from user_auth.models import CustomUser as User, Azienda, Consulente
 
 # ==============================================================================
-# MODELLI BASE (Categorie, Soggetti)
+# 0. PARAMETRI MONITORAGGIO TECNICO (NIS2)
 # ==============================================================================
+class ParametriMonitoraggio(models.Model):
+    azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE, related_name='monitoraggio_tecnico')
+    dominio_web = models.CharField(max_length=255, blank=True, help_text=_("Es: ferrari.it"))
+    prometheus_url = models.URLField(default="http://localhost:9090")
+    mod_monitoring_attivo = models.BooleanField(default=False)
+    def __str__(self): return f"Parametri NIS2 - {self.azienda.nome}"
 
+# ==============================================================================
+# 1. MODELLI BASE E TRATTAMENTI (BONIFICATO)
+# ==============================================================================
 class CategoriaDati(models.Model):
     nome = models.CharField(max_length=100)
     def __str__(self): return self.nome
-verbose_name_plural =("Audit Categoria")
-verbose_name =("Audit Categoria")
 
 class SoggettoInteressato(models.Model):
     nome = models.CharField(max_length=100)
     def __str__(self): return self.nome
-
-# ==============================================================================
-# 1. REGISTRO TRATTAMENTI
-# ==============================================================================
 
 class Trattamento(models.Model):
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
@@ -60,16 +64,20 @@ class DomandaChecklist(models.Model):
     def __str__(self): return self.testo
 
 class RispostaChecklist(models.Model):
+    """ RISOLVE IMPORT ERROR: Necessario per l'analisi dei rischi e accountability """
     trattamento = models.ForeignKey(Trattamento, on_delete=models.CASCADE, related_name='risposte_checklist')
     domanda = models.ForeignKey(DomandaChecklist, on_delete=models.CASCADE)
-    risposta = models.BooleanField(default=False) # True = Sì (Rischio presente)
+    risposta = models.BooleanField(default=False) # True = Rischio identificato
+    note = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _("Risposta Checklist")
+        verbose_name_plural = _("Risposte Checklist")
 
 # ==============================================================================
 # 2. GESTIONE DOCUMENTALE
 # ==============================================================================
-
 class CategoriaDocumento(models.Model):
-    """Serve unicamente per categorizzare i Documenti Aziendali."""
     nome = models.CharField(max_length=100)
     def __str__(self): return self.nome
 
@@ -95,45 +103,8 @@ class VersioneDocumento(models.Model):
     note_versione = models.CharField(max_length=200, blank=True)
 
 # ==============================================================================
-# 3. INCIDENTI (DATA BREACH)
+# 3. AUDIT E SESSIONI (RISOLVE TYPEERROR)
 # ==============================================================================
-
-class Incidente(models.Model):
-    STATO_CHOICES = (('APERTO', 'Aperto'), ('GESTIONE', 'In Gestione'), ('CHIUSO', 'Chiuso'))
-    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
-    data_rilevamento = models.DateTimeField()
-    titolo = models.CharField(max_length=200)
-    descrizione = models.TextField()
-    stato = models.CharField(max_length=20, choices=STATO_CHOICES, default='APERTO')
-    valutazione_rischio = models.TextField(blank=True)
-    notifica_garante_necessaria = models.BooleanField(default=False)
-    notifica_interessati_necessaria = models.BooleanField(default=False)
-    data_scadenza_notifica = models.DateTimeField(null=True, blank=True)
-    azioni_correttive = models.TextField(blank=True)
-    segnalato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-
-# ==============================================================================
-# 4. RICHIESTE INTERESSATI
-# ==============================================================================
-
-class RichiestaInteressato(models.Model):
-    TIPO_CHOICES = (('ACCESSO', 'Accesso'), ('RETTIFICA', 'Rettifica'), ('CANCELLAZIONE', 'Cancellazione'), ('OPPOSIZIONE', 'Opposizione'), ('PORTABILITA', 'Portabilità'))
-    STATO_CHOICES = (('RICEVUTA', 'Ricevuta'), ('IN_LAVORAZIONE', 'In Lavorazione'), ('EVASA', 'Evasa'), ('RIFIUTATA', 'Rifiutata'))
-    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
-    data_ricezione = models.DateTimeField(auto_now_add=True)
-    tipo_richiesta = models.CharField(max_length=20, choices=TIPO_CHOICES)
-    richiedente_nome = models.CharField(max_length=200)
-    richiedente_email = models.EmailField()
-    richiesta_testo = models.TextField()
-    stato = models.CharField(max_length=20, choices=STATO_CHOICES, default='RICEVUTA')
-    note_interne = models.TextField(blank=True)
-    data_scadenza_risposta = models.DateField(null=True, blank=True)
-    gestita_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-
-# ==============================================================================
-# 5. AUDIT
-# ==============================================================================
-
 class AuditCategoria(models.Model):
     nome = models.CharField(max_length=100)
     ordine = models.IntegerField(default=0)
@@ -147,20 +118,23 @@ class AuditDomanda(models.Model):
 
 class AuditSession(models.Model):
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
+    titolo = models.CharField(max_length=255, default=_("Audit Session"))
     data_creazione = models.DateTimeField(auto_now_add=True)
     creato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     completato = models.BooleanField(default=False)
+    stato = models.CharField(max_length=20, default='APERTO') # Richiesto dalla View
     note = models.TextField(blank=True)
+    def __str__(self): return f"{self.titolo} - {self.azienda.nome}"
 
 class AuditRisposta(models.Model):
     sessione = models.ForeignKey(AuditSession, on_delete=models.CASCADE, related_name='risposte')
     domanda = models.ForeignKey(AuditDomanda, on_delete=models.CASCADE)
-    risposta = models.BooleanField(default=False) # Sì/No
+    risposta = models.BooleanField(default=False)
     note = models.TextField(blank=True)
     class Meta: unique_together = ('sessione', 'domanda')
 
 # ==============================================================================
-# 6. COMPITI
+# 4. INCIDENTI E RICHIESTE
 # ==============================================================================
 
 class Compito(models.Model):
@@ -169,16 +143,38 @@ class Compito(models.Model):
     creato_da = models.ForeignKey(User, on_delete=models.CASCADE, related_name='compiti_creati')
     aziende_assegnate = models.ManyToManyField(Azienda, blank=True)
     is_global = models.BooleanField(default=False)
+class Incidente(models.Model):
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
+    data_rilevamento = models.DateTimeField(default=timezone.now)
     titolo = models.CharField(max_length=200)
-    descrizione = models.TextField(blank=True)
-    data_scadenza = models.DateField(null=True, blank=True)
-    stato = models.CharField(max_length=20, choices=STATO_CHOICES, default='APERTO')
-    priorita = models.CharField(max_length=10, choices=PRIORITA_CHOICES, default='MEDIA')
+    descrizione = models.TextField()
+    stato = models.CharField(max_length=20, choices=(('APERTO', 'Aperto'), ('GESTIONE', 'In Gestione'), ('CHIUSO', 'Chiuso')), default='APERTO')
+    notifica_garante_necessaria = models.BooleanField(default=False)
+    valutazione_rischio = models.TextField(blank=True)
     def __str__(self): return self.titolo
 
+class RichiestaInteressato(models.Model):
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
+    data_ricezione = models.DateTimeField(auto_now_add=True)
+    tipo_richiesta = models.CharField(max_length=20, default='ACCESSO')
+    richiedente_email = models.EmailField()
+    richiedente_nome = models.CharField(max_length=200)
+    richiesta_testo = models.TextField()
+    stato = models.CharField(max_length=20, default='RICEVUTA')
+    data_scadenza_risposta = models.DateField(null=True, blank=True)
+
 # ==============================================================================
-# NUOVO MODULO: CONFIGURAZIONE DI RETE INFORMATICA (PADRE)
+# 5. COMPITI, ASSET E SOFTWARE
 # ==============================================================================
+# ==============================================================================
+# COMPITI / TASK (VERSIONE COMPLETA PER FORMS E NIS2)
+# ==============================================================================
+# ==============================================================================
+# COMPITI / TASK (VERSIONE BONIFICATA)
+# ==============================================================================
+class Compito(models.Model):
+    STATO_CHOICES = (('APERTO', 'Aperto'), ('IN_CORSO', 'In Corso'), ('COMPLETATO', 'Completato'))
+    PRIORITA_CHOICES = (('BASSA', 'Bassa'), ('MEDIA', 'Media'), ('ALTA', 'Alta'))
 
 class ConfigurazioneRete(models.Model):
     """ Modello per la configurazione di rete principale. """
@@ -214,7 +210,15 @@ class ConfigurazioneRete(models.Model):
 
     def __str__(self):
         return f"Configurazione Rete per {self.azienda.nome}"
+    titolo = models.CharField(max_length=200, verbose_name=_("Titolo Attività"))
+    descrizione = models.TextField(blank=True, verbose_name=_("Descrizione/Dettaglio")) # RISOLVE IL FIELDERROR
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, null=True, blank=True)
+    aziende_assegnate = models.ManyToManyField(Azienda, blank=True, related_name='compiti_molteplici')
 
+    stato = models.CharField(max_length=20, choices=STATO_CHOICES, default='APERTO')
+    priorita = models.CharField(max_length=10, choices=PRIORITA_CHOICES, default='MEDIA')
+    data_scadenza = models.DateField(null=True, blank=True)
+    is_global = models.BooleanField(default=False)
 
 class ComponenteRete(models.Model):
     """ Modello per rappresentare i singoli device/nodi aggiunti come "caselle". """
@@ -254,12 +258,20 @@ class ComponenteRete(models.Model):
 # ==============================================================================
 # 11. ASSET E SOFTWARE
 # ==============================================================================
+    data_creazione = models.DateTimeField(auto_now_add=True)
+    creato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Compito")
+        verbose_name_plural = _("Compiti")
+
+    def __str__(self):
+        return self.titolo
 
 class Asset(models.Model):
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
-    tipo_asset = models.CharField(max_length=50, choices=[('PC', 'PC/Laptop'), ('SERVER', 'Server'), ('MOBILE', 'Smartphone/Tablet'), ('ALTRO', 'Altro')])
+    tipo_asset = models.CharField(max_length=50, default='PC')
     marca_modello = models.CharField(max_length=100)
-    serial_number = models.CharField(max_length=100, blank=True)
     utente_assegnatario = models.CharField(max_length=100, blank=True)
     reparto = models.CharField(max_length=100, blank=True)
     luogo_fisico = models.CharField(max_length=100, blank=True)
@@ -270,22 +282,19 @@ class Asset(models.Model):
     antivirus_installato = models.BooleanField(default=False)
     stato = models.CharField(max_length=20, choices=[('IN_USO', 'In Uso'), ('DISMESSO', 'Dismesso'), ('MANUTENZIONE', 'In Manutenzione')], default='IN_USO')
     codice_inventario = models.CharField(max_length=50, blank=True)
+    criticita = models.CharField(max_length=20, default='MEDIA')
+    stato = models.CharField(max_length=20, default='IN_USO')
 
 class Software(models.Model):
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
     nome_software = models.CharField(max_length=100)
-    scopo_utilizzo = models.CharField(max_length=200)
-    tipologia = models.CharField(max_length=20, choices=[('LOCALE', 'Installato Locale'), ('CLOUD', 'SaaS/Cloud'), ('APP', 'App Mobile')])
-    fornitore = models.CharField(max_length=100, blank=True)
-    locazione_server = models.CharField(max_length=100, blank=True, help_text="Es. Italia, Irlanda, USA")
-    amministratore = models.CharField(max_length=100, blank=True, help_text="Chi gestisce questo software")
+    tipologia = models.CharField(max_length=20, default='LOCALE')
+    locazione_server = models.CharField(max_length=100, blank=True)
 
 # ==============================================================================
-# 12. ORGANIGRAMMA
+# 6. ORGANIGRAMMA E TIA
 # ==============================================================================
-
 class RuoloPrivacy(models.Model):
-    # La chiave Azienda è una Foreign Key a Azienda (necessario per Admin/Formset)
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
 
     # Corretto RUOLO_CHOICES con max_length sufficiente per RESPONSABILE_TRATTAMENTO
@@ -301,6 +310,7 @@ class RuoloPrivacy(models.Model):
     ruolo_tipo = models.CharField(max_length=30, choices=RUOLO_CHOICES, verbose_name=_("Tipo di Ruolo Privacy"))
 
     # Campo per list_display (risolve E108)
+    ruolo_tipo = models.CharField(max_length=30)
     nome_cognome = models.CharField(max_length=100)
     contatti = models.CharField(max_length=200, blank=True)
     atto_nomina = models.FileField(upload_to='nomine/', blank=True, null=True)
@@ -315,8 +325,6 @@ class RuoloPrivacy(models.Model):
 
 class Paese(models.Model):
     nome = models.CharField(max_length=100)
-    adeguatezza_ue = models.BooleanField(default=False)
-    gruppo_tia = models.IntegerField(default=3, help_text="1=Sicuro, 2=Medio, 3=Rischio")
     def __str__(self): return self.nome
 
 class ValutazioneTIA(models.Model):
@@ -349,11 +357,15 @@ class Videosorveglianza(models.Model):
     compilato_da = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     registrazione_attiva = models.BooleanField(default=True)
 
+    paese_destinazione = models.ForeignKey(Paese, on_delete=models.CASCADE)
+
+class Videosorveglianza(models.Model):
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
+    nome_impianto = models.CharField(max_length=100)
 
 # ==============================================================================
-# 17. MODULO 7: GESTIONE REFERENTE CSIRT (NIS2)
+# 7. CSIRT (NIS2) E RETE
 # ==============================================================================
-
 class ReferenteCSIRT(models.Model):
     """Modello per memorizzare la nomina del Referente CSIRT e i relativi dati."""
     azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE, related_name='referente_csirt', verbose_name=_("Azienda"))
@@ -498,3 +510,45 @@ class AllegatoNotifica(models.Model):
     class Meta:
         verbose_name = _("Allegato Notifica")
         verbose_name_plural = _("Allegati Notifiche")
+    azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE, related_name='ref_csirt_final')
+    data_nomina = models.DateField(default=timezone.now)
+    referente_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    ref_nome = models.CharField(max_length=100, blank=True)
+    ref_cognome = models.CharField(max_length=100, blank=True)
+    ref_cf = models.CharField(max_length=16, blank=True)
+    ref_email = models.EmailField(blank=True)
+    ref_telefono = models.CharField(max_length=20, blank=True)
+    ref_ruolo = models.CharField(max_length=100, blank=True)
+    competenze_documentate = models.BooleanField(default=False)
+    motivo_esterno = models.TextField(blank=True)
+    pc_nome = models.CharField(max_length=100, blank=True)
+    pc_cognome = models.CharField(max_length=100, blank=True)
+    pc_email = models.EmailField(blank=True)
+    codice_ipa = models.CharField(max_length=100, blank=True)
+    sos1_nome = models.CharField(max_length=100, blank=True)
+    sos1_cognome = models.CharField(max_length=100, blank=True)
+    sos1_cf = models.CharField(max_length=16, blank=True)
+    sos1_email = models.EmailField(blank=True)
+    sos2_nome = models.CharField(max_length=100, blank=True)
+    sos2_cognome = models.CharField(max_length=100, blank=True)
+    sos2_cf = models.CharField(max_length=16, blank=True)
+    sos2_email = models.EmailField(blank=True)
+
+class NotificaIncidente(models.Model):
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, related_name='notifiche_nis2_final')
+    titolo_incidente = models.CharField(max_length=255)
+    data_incidente = models.DateTimeField()
+    data_notifica = models.DateTimeField(null=True, blank=True)
+    stato = models.CharField(max_length=20, default='APERTA')
+
+class ConfigurazioneRete(models.Model):
+    azienda = models.OneToOneField(Azienda, on_delete=models.CASCADE)
+    tipo_architettura = models.CharField(max_length=50, default='HIERARCHICAL')
+    firewall_utilizzato = models.CharField(max_length=100, blank=True)
+    politica_patching = models.CharField(max_length=50, default='MANUALE')
+
+class ComponenteRete(models.Model):
+    configurazione = models.ForeignKey(ConfigurazioneRete, on_delete=models.CASCADE, related_name='componenti_final')
+    nome_componente = models.CharField(max_length=100)
+    tipo = models.CharField(max_length=50, default='DEVICE')
+    criticita = models.CharField(max_length=20, default='MEDIA')
