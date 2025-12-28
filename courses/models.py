@@ -124,6 +124,26 @@ class ImpostazioniSito(models.Model):
     # === CAMPO AI ===
     gemini_api_key = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Chiave API Google Gemini"))
 
+    # === CHIAVI API SICUREZZA ===
+    dehashed_username = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Dehashed Username"))
+    dehashed_api_key = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Dehashed API Key"))
+    pentest_tools_api_key = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Pentest-Tools API Key"))
+    pentest_tools_base_url = models.URLField(
+        max_length=255,
+        blank=True,
+        null=True,
+        default="https://pp.pentest-tools.com",
+        verbose_name=_("Pentest-Tools Base URL"),
+    )
+    pentest_tools_scan_path = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        default="/api/v1/scan",
+        verbose_name=_("Pentest-Tools Scan Path"),
+        help_text=_("Percorso endpoint per l'avvio delle scansioni (es. /api/v1/scan)."),
+    )
+
     # === NUOVO CAMPO TEMPLATE CSIRT (Era questo che mancava!) ===
     template_nomina_csirt = models.FileField(
         upload_to=upload_path_config, 

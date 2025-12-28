@@ -91,4 +91,6 @@ urlpatterns = [
     path('csirt/upload-template/', views.csirt_upload_template, name='csirt_upload_template'),
     path('csirt/config-rete/', views.configurazione_rete_view, name='configurazione_rete_view'),
     path('csirt/ai-query/', views.csirt_ai_query, name='csirt_ai_query'),
+    path('csirt/dehashed-query/', views.csirt_dehashed_query, name='csirt_dehashed_query'),
+    path('csirt/pentest-tools-query/', views.csirt_pentest_tools_query, name='csirt_pentest_tools_query'),
 ]

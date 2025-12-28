@@ -46,6 +46,7 @@ from django.views.decorators.http import require_POST
 import os
 import json 
 from django.conf import settings 
+import requests
 
 # === NUOVE IMPORTAZIONI NECESSARIE PER GEMINI ===
 from google import genai 
@@ -1206,6 +1207,124 @@ def csirt_ai_query(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Errore di server non gestito: {e}'}, status=500)
 
+
+@require_POST
+@login_required
+def csirt_dehashed_query(request):
+    """
+    Endpoint per interrogare l'API Dehashed tramite credenziali salvate.
+    """
+    if request.user.ruolo not in ['REFERENTE', 'CONSULENTE']:
+        return JsonResponse({'error': 'Accesso non autorizzato.'}, status=403)
+
+    try:
+        if not request.body:
+            return JsonResponse({'error': 'Nessun dato fornito.'}, status=400)
+
+        data = json.loads(request.body)
+        query = data.get('query', '').strip()
+
+        if not query:
+            return JsonResponse({'error': 'Query vuota.'}, status=400)
+
+        config = ImpostazioniSito.objects.get(pk=1)
+        if not config.dehashed_username or not config.dehashed_api_key:
+            return JsonResponse({'error': 'Credenziali Dehashed non configurate.'}, status=500)
+
+        response = requests.get(
+            'https://api.dehashed.com/search',
+            params={'query': query, 'size': 10},
+            auth=(config.dehashed_username, config.dehashed_api_key),
+            timeout=20,
+        )
+
+        if response.status_code >= 400:
+            return JsonResponse({'error': f'Errore Dehashed: {response.status_code}.'}, status=response.status_code)
+
+        payload = response.json()
+        entries = payload.get('entries') or []
+        trimmed_entries = []
+        for entry in entries[:5]:
+            trimmed_entries.append({
+                'email': entry.get('email'),
+                'username': entry.get('username'),
+                'ip_address': entry.get('ip_address'),
+                'domain': entry.get('domain'),
+                'source': entry.get('database_name') or entry.get('source'),
+            })
+
+        return JsonResponse({
+            'success': True,
+            'total': payload.get('total'),
+            'entries': trimmed_entries,
+        })
+
+    except ImpostazioniSito.DoesNotExist:
+        return JsonResponse({'error': 'Impostazioni sito non configurate.'}, status=500)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Formato JSON non valido.'}, status=400)
+    except requests.RequestException as exc:
+        return JsonResponse({'error': f'Errore di connessione Dehashed: {exc}'}, status=502)
+    except Exception as exc:
+        return JsonResponse({'error': f'Errore di server non gestito: {exc}'}, status=500)
+
+
+@require_POST
+@login_required
+def csirt_pentest_tools_query(request):
+    """
+    Endpoint per inviare richieste a Pentest-Tools tramite credenziali salvate.
+    """
+    if request.user.ruolo not in ['REFERENTE', 'CONSULENTE']:
+        return JsonResponse({'error': 'Accesso non autorizzato.'}, status=403)
+
+    try:
+        if not request.body:
+            return JsonResponse({'error': 'Nessun dato fornito.'}, status=400)
+
+        data = json.loads(request.body)
+        target = data.get('target', '').strip()
+
+        if not target:
+            return JsonResponse({'error': 'Target vuoto.'}, status=400)
+
+        config = ImpostazioniSito.objects.get(pk=1)
+        if not config.pentest_tools_api_key:
+            return JsonResponse({'error': 'API key Pentest-Tools non configurata.'}, status=500)
+
+        base_url = (config.pentest_tools_base_url or 'https://pp.pentest-tools.com').rstrip('/')
+        scan_path = config.pentest_tools_scan_path or '/api/v1/scan'
+        scan_path = scan_path if scan_path.startswith('/') else f'/{scan_path}'
+        url = f"{base_url}{scan_path}"
+
+        response = requests.post(
+            url,
+            json={'target': target},
+            headers={
+                'Authorization': f'Bearer {config.pentest_tools_api_key}',
+                'Accept': 'application/json',
+            },
+            timeout=30,
+        )
+
+        if response.status_code >= 400:
+            return JsonResponse({'error': f'Errore Pentest-Tools: {response.status_code}.'}, status=response.status_code)
+
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {'raw': response.text}
+
+        return JsonResponse({'success': True, 'result': payload})
+
+    except ImpostazioniSito.DoesNotExist:
+        return JsonResponse({'error': 'Impostazioni sito non configurate.'}, status=500)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Formato JSON non valido.'}, status=400)
+    except requests.RequestException as exc:
+        return JsonResponse({'error': f'Errore di connessione Pentest-Tools: {exc}'}, status=502)
+    except Exception as exc:
+        return JsonResponse({'error': f'Errore di server non gestito: {exc}'}, status=500)
 
 @role_required
 def download_csirt_nomina(request):

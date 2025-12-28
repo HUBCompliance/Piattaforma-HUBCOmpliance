@@ -257,6 +257,53 @@
             </div>
         </div>
 
+        <div class="card shadow-sm border-secondary">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i> {% translate "OSINT & Pentest Tools" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    {% translate "Esegui verifiche rapide con Dehashed o avvia scansioni tramite Pentest-Tools." %}
+                </p>
+
+                <div class="mb-4">
+                    <label for="dehashed-query" class="form-label small fw-bold">
+                        {% translate "Ricerca Dehashed" %}
+                    </label>
+                    <input
+                        type="text"
+                        class="form-control form-control-sm"
+                        id="dehashed-query"
+                        placeholder="{% translate 'email@dominio.it o dominio.it' %}"
+                    >
+                    <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" id="dehashed-submit">
+                        <i class="bi bi-search me-1"></i> {% translate "Interroga Dehashed" %}
+                    </button>
+                    <div class="mt-2 p-2 border rounded bg-light" id="dehashed-response">
+                        <span class="small text-muted">{% translate "I risultati appariranno qui." %}</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="pentest-target" class="form-label small fw-bold">
+                        {% translate "Target Pentest-Tools" %}
+                    </label>
+                    <input
+                        type="text"
+                        class="form-control form-control-sm"
+                        id="pentest-target"
+                        placeholder="{% translate 'https://esempio.it o 1.2.3.4' %}"
+                    >
+                    <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" id="pentest-submit">
+                        <i class="bi bi-play-fill me-1"></i> {% translate "Avvia Scansione" %}
+                    </button>
+                    <div class="mt-2 p-2 border rounded bg-light" id="pentest-response">
+                        <span class="small text-muted">{% translate "Lo stato della scansione apparirà qui." %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow-sm border-danger">
             <div class="card-header bg-danger text-white">
                 <h5 class="mb-0">{% translate "2. Registro Notifiche" %}</h5>
@@ -454,6 +501,109 @@ $(document).ready(function() {
             complete: function() {
                 $button.attr('disabled', false)
                        .html('<i class="bi bi-magic me-1"></i> {% translate "Ottieni Risposta IA" %}');
+            }
+        });
+    });
+
+    const escapeHtml = (value) => $('<div>').text(value).html();
+
+    const renderDehashedEntries = (entries, total) => {
+        if (!entries || entries.length === 0) {
+            return '<span class="small text-muted">{% translate "Nessun risultato trovato." %}</span>';
+        }
+        const items = entries.map((entry) => {
+            const parts = [
+                entry.email ? `<strong>${escapeHtml(entry.email)}</strong>` : null,
+                entry.username ? `(${escapeHtml(entry.username)})` : null,
+                entry.domain ? escapeHtml(entry.domain) : null,
+                entry.ip_address ? escapeHtml(entry.ip_address) : null,
+                entry.source ? `<span class="badge bg-secondary">${escapeHtml(entry.source)}</span>` : null,
+            ].filter(Boolean);
+            return `<li class="mb-1">${parts.join(' ')}</li>`;
+        }).join('');
+        const totalText = total ? `<div class="small text-muted mb-1">{% translate "Totale risultati" %}: ${escapeHtml(String(total))}</div>` : '';
+        return `${totalText}<ul class="small ps-3 mb-0">${items}</ul>`;
+    };
+
+    const renderJsonBlock = (payload) => {
+        const jsonText = JSON.stringify(payload, null, 2);
+        return `<pre class="small mb-0">${escapeHtml(jsonText)}</pre>`;
+    };
+
+    $('#dehashed-submit').on('click', function() {
+        const $button = $(this);
+        const query = $('#dehashed-query').val();
+        const $responseBox = $('#dehashed-response');
+        const csrftoken = $('[name=csrfmiddlewaretoken]').val();
+
+        if (!query || query.trim() === '') {
+            $responseBox.html('<span class="small text-danger">{% translate "Inserisci una query valida." %}</span>');
+            return;
+        }
+
+        $button.attr('disabled', true)
+               .html('<span class="spinner-border spinner-border-sm me-2" role="status"></span>{% translate "Ricerca in corso..." %}');
+        $responseBox.html('<span class="small text-muted">{% translate "Attendere, sto interrogando Dehashed..." %}</span>');
+
+        $.ajax({
+            url: "{% url 'csirt_dehashed_query' %}",
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ 'query': query }),
+            headers: {'X-CSRFToken': csrftoken},
+            success: function(response) {
+                if (response.success) {
+                    $responseBox.html(renderDehashedEntries(response.entries, response.total));
+                } else {
+                    $responseBox.html('<span class="small text-danger">{% translate "Errore Dehashed" %}: </span>' + escapeHtml(response.error || ''));
+                }
+            },
+            error: function(xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : '{% translate "Errore sconosciuto di connessione." %}';
+                $responseBox.html('<span class="small text-danger">{% translate "Errore" %}: </span>' + escapeHtml(error));
+            },
+            complete: function() {
+                $button.attr('disabled', false)
+                       .html('<i class="bi bi-search me-1"></i> {% translate "Interroga Dehashed" %}');
+            }
+        });
+    });
+
+    $('#pentest-submit').on('click', function() {
+        const $button = $(this);
+        const target = $('#pentest-target').val();
+        const $responseBox = $('#pentest-response');
+        const csrftoken = $('[name=csrfmiddlewaretoken]').val();
+
+        if (!target || target.trim() === '') {
+            $responseBox.html('<span class="small text-danger">{% translate "Inserisci un target valido." %}</span>');
+            return;
+        }
+
+        $button.attr('disabled', true)
+               .html('<span class="spinner-border spinner-border-sm me-2" role="status"></span>{% translate "Avvio in corso..." %}');
+        $responseBox.html('<span class="small text-muted">{% translate "Invio richiesta a Pentest-Tools..." %}</span>');
+
+        $.ajax({
+            url: "{% url 'csirt_pentest_tools_query' %}",
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ 'target': target }),
+            headers: {'X-CSRFToken': csrftoken},
+            success: function(response) {
+                if (response.success) {
+                    $responseBox.html(renderJsonBlock(response.result));
+                } else {
+                    $responseBox.html('<span class="small text-danger">{% translate "Errore Pentest-Tools" %}: </span>' + escapeHtml(response.error || ''));
+                }
+            },
+            error: function(xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : '{% translate "Errore sconosciuto di connessione." %}';
+                $responseBox.html('<span class="small text-danger">{% translate "Errore" %}: </span>' + escapeHtml(error));
+            },
+            complete: function() {
+                $button.attr('disabled', false)
+                       .html('<i class="bi bi-play-fill me-1"></i> {% translate "Avvia Scansione" %}');
             }
         });
     });

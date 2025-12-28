@@ -107,6 +107,11 @@ class ImpostazioniSitoAdmin(admin.ModelAdmin):
         'logo_principale', 
         'template_nomina_csirt', # <--- AGGIUNTO: Ora sarà visibile!
         'gemini_api_key', 
+        'dehashed_username',
+        'dehashed_api_key',
+        'pentest_tools_api_key',
+        'pentest_tools_base_url',
+        'pentest_tools_scan_path',
         'email_service_id', 
         'email_public_key', 
         'email_private_key', 
