@@ -31,12 +31,16 @@
         {# CARD 1: DATI REFERENTE E SALVATAGGIO (Form principale) #}
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{% translate "1. Designazione Referente" %}</h5>
+                <button class="btn btn-link text-white text-decoration-none fw-bold p-0 d-flex align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDesignazioneReferente" aria-expanded="true" aria-controls="collapseDesignazioneReferente">
+                    <i class="bi bi-chevron-down me-2"></i>
+                    <span>{% translate "1. Designazione Referente" %}</span>
+                </button>
                 <a href="{% url 'download_csirt_nomina' %}" class="btn btn-sm btn-light text-primary fw-bold">
                     <i class="bi bi-download me-1"></i> {% translate "Scarica Nomina" %}
                 </a>
             </div>
-            <div class="card-body">
+            <div id="collapseDesignazioneReferente" class="collapse show">
+                <div class="card-body">
                 <form method="post" id="csirt-form">
                     {% csrf_token %}
                     
@@ -137,6 +141,7 @@
                         <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> {% translate "Salva Dati" %}</button>
                     </div>
                 </form>
+                </div>
             </div>
         </div>
         
@@ -205,10 +210,14 @@
         
         {# CARD 3: REGISTRO NOTIFICHE (Lista Dettaglio) #}
         <div class="card shadow-sm border-danger mb-4">
-            <div class="card-header bg-danger text-white">
-                <h5 class="mb-0">{% translate "2. Registro Notifiche" %}</h5>
+            <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                <button class="btn btn-link text-white text-decoration-none fw-bold p-0 d-flex align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRegistroNotifiche" aria-expanded="true" aria-controls="collapseRegistroNotifiche">
+                    <i class="bi bi-chevron-down me-2"></i>
+                    <span>{% translate "2. Registro Notifiche" %}</span>
+                </button>
             </div>
-            <div class="card-body">
+            <div id="collapseRegistroNotifiche" class="collapse show">
+                <div class="card-body">
                 <div class="d-grid mb-3">
                     <a href="{% url 'csirt_notifica_create' %}" class="btn btn-outline-danger">
                         <i class="bi bi-bell-fill me-1"></i> {% translate "Registra Nuova Notifica" %}
@@ -235,6 +244,7 @@
                 {% else %}
                     <p class="text-muted small text-center py-3">{% translate "Nessuna notifica registrata." %}</p>
                 {% endif %}
+                </div>
             </div>
         </div>
         <div class="card shadow-sm mb-4">
@@ -311,6 +321,30 @@
             if (!el.classList.contains('form-control')) {
                 el.classList.add('form-control');
             }
+        });
+
+        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function(toggle) {
+            const targetSelector = toggle.getAttribute('data-bs-target');
+            const target = targetSelector ? document.querySelector(targetSelector) : null;
+            const icon = toggle.querySelector('i');
+
+            if (!target || !icon) {
+                return;
+            }
+
+            const updateIcon = function(isShown) {
+                icon.classList.toggle('bi-chevron-down', isShown);
+                icon.classList.toggle('bi-chevron-right', !isShown);
+            };
+
+            updateIcon(target.classList.contains('show'));
+
+            target.addEventListener('shown.bs.collapse', function() {
+                updateIcon(true);
+            });
+            target.addEventListener('hidden.bs.collapse', function() {
+                updateIcon(false);
+            });
         });
 
         // === LOGICA JAVASCRIPT PER L'ASSISTENTE AI ===
