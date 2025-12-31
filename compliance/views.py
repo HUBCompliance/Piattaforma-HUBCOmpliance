@@ -71,12 +71,30 @@ def get_azienda_current(request):
                 return None
     return None
 
-def role_required(view_func):
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_authenticated: return redirect('login')
-        if request.user.ruolo not in ['REFERENTE', 'CONSULENTE']: return redirect('login')
-        return view_func(request, *args, **kwargs)
-    return _wrapped_view
+def role_required(view_func=None, allowed_roles=None):
+    """
+    Decoratore per limitare l'accesso alle view in base al ruolo.
+    Uso:
+      @role_required
+      @role_required(allowed_roles=['CONSULENTE'])
+    """
+    if allowed_roles is None:
+        allowed_roles = ['REFERENTE', 'CONSULENTE']
+
+    def decorator(func):
+        @wraps(func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('login')
+            if request.user.ruolo not in allowed_roles:
+                return redirect('login')
+            return func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    if callable(view_func):
+        return decorator(view_func)
+    return decorator
 
 # === FUNZIONE DI CHIAMATA ALL'AI (IMPLEMENTAZIONE FINALE) ===
 def generate_gemini_response(prompt):
