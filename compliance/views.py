@@ -20,16 +20,11 @@ from courses.models import (
     Corso, IscrizioneCorso, Modulo, ProgressoModulo, 
     Quiz, Domanda, Risposta, Attestato, ImpostazioniSito
 )
-from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto
+from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto, AdminReferente
 from .models import (
-    Azienda, 
-    AuditSession, 
-    AuditDomanda,
-    AuditCategoria,
-    SecurityAudit, 
-    Compito, 
-    Trattamento,  # <--- Assicurati che questo sia presente
-    # aggiungi altri modelli se necessario...
+    AuditCategoria, AuditDomanda, AuditSession, AuditRisposta,
+    Incidente, ReferenteCSIRT, NotificaIncidente, 
+    SecurityAudit, SecurityControl, SecurityResponse
 )
 from .forms import (
     TrattamentoForm, DocumentoAziendaleForm, VersioneDocumentoForm,
@@ -1078,8 +1073,8 @@ def csirt_dashboard(request):
     
     # 2. DATI COMUNI (INCLUSO IL GRAFICO)
     referente_csirt, _created = ReferenteCSIRT.objects.get_or_create(
-        azienda=azienda,
-        defaults={'referente_user': user if user.ruolo == 'REFERENTE' else None}
+    azienda=azienda,
+    defaults={'referente_user': request.user} # Nome campo corretto
     )
     
     notifiche_qs = NotificaIncidente.objects.filter(azienda=azienda)
