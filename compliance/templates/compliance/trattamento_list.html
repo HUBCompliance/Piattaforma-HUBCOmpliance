@@ -1,0 +1,153 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+
+{% block title %}Registro Trattamenti - {{ azienda.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Intestazione e Azioni Rapide -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Registro Trattamenti</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0 fw-bold text-dark">
+                <i class="bi bi-journal-text text-primary me-2"></i> 
+                Registro delle Attività di Trattamento
+            </h1>
+            <p class="text-muted mb-0">Gestione trattamenti per l'azienda: <span class="fw-semibold text-primary">{{ azienda.nome }}</span></p>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <a href="{% url 'trattamento_create' %}?azienda_id={{ azienda.id }}" class="btn btn-primary d-flex align-items-center shadow-sm px-4">
+                <i class="bi bi-plus-circle me-2"></i> Nuovo Trattamento
+            </a>
+        </div>
+    </div>
+
+    <!-- Indicatori Statistici -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-3 d-flex align-items-center">
+                    <div class="bg-primary-subtle text-primary p-3 rounded-3 me-3">
+                        <i class="bi bi-collection h4 mb-0"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">Totale Trattamenti</div>
+                        <div class="h5 mb-0 fw-bold">{{ trattamenti.count }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-3 d-flex align-items-center">
+                    <div class="bg-danger-subtle text-danger p-3 rounded-3 me-3">
+                        <i class="bi bi-shield-exclamation h4 mb-0"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold">DPIA Necessarie</div>
+                        <div class="h5 mb-0 fw-bold">
+                            {% if trattamenti %}
+                                {{ total_dpia|default:0 }}
+                            {% else %}0{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Tabella Registro -->
+    <div class="card shadow-sm border-0 overflow-hidden">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h5 class="card-title mb-0 fw-bold text-secondary">Elenco Trattamenti Censiti (Art. 30 GDPR)</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4 py-3">Trattamento</th>
+                            <th class="py-3">Ruolo Privacy</th>
+                            <th class="py-3">Finalità</th>
+                            <th class="py-3">Livello Rischio</th>
+                            <th class="text-center py-3">DPIA</th>
+                            <th class="text-end pe-4 py-3">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in trattamenti %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">{{ t.nome_trattamento }}</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">ID: #TR-{{ t.id }}</div>
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle">
+                                    {{ t.get_tipo_ruolo_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="text-muted small text-truncate" style="max-width: 280px;" title="{{ t.finalita }}">
+                                    {{ t.finalita|default:"Finalità non specificata" }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if t.livello_rischio == 'ALTO' %}
+                                    <span class="badge bg-danger rounded-pill px-3">Alto</span>
+                                {% elif t.livello_rischio == 'MEDIO' %}
+                                    <span class="badge bg-warning text-dark rounded-pill px-3">Medio</span>
+                                {% else %}
+                                    <span class="badge bg-success rounded-pill px-3">Basso</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if t.dpia_necessaria %}
+                                    <i class="bi bi-exclamation-octagon-fill text-danger fs-5" title="DPIA Richiesta"></i>
+                                {% else %}
+                                    <i class="bi bi-check-circle text-muted" title="Non richiesta"></i>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group shadow-sm border rounded">
+                                    <a href="{% url 'trattamento_detail' t.id %}" class="btn btn-sm btn-white" title="Vedi Dettaglio">
+                                        <i class="bi bi-eye text-primary"></i>
+                                    </a>
+                                    <a href="{% url 'trattamento_update' t.id %}" class="btn btn-sm btn-white border-start" title="Modifica">
+                                        <i class="bi bi-pencil-square text-secondary"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div class="d-flex flex-column align-items-center py-4">
+                                    <i class="bi bi-journal-x display-1 text-muted opacity-25"></i>
+                                    <h5 class="mt-3 text-secondary">Registro Trattamenti Vuoto</h5>
+                                    <p class="text-muted small">Non sono stati ancora censiti trattamenti per questa azienda.</p>
+                                    <a href="{% url 'trattamento_create' %}?azienda_id={{ azienda.id }}" class="btn btn-primary mt-2 px-4 shadow-sm">
+                                        <i class="bi bi-plus-lg me-1"></i> Crea il primo Trattamento
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-light py-3 border-top-0">
+            <div class="d-flex align-items-center text-muted">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <span class="small">L'integrità di questo registro garantisce la conformità ai sensi del principio di Accountability (Art. 5.2 GDPR).</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
