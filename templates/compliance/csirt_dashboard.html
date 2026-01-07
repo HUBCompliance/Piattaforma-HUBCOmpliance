@@ -89,6 +89,74 @@
                 </div>
             </div>
         </div>
+
+        <div class="card shadow-sm mb-4 border-0">
+            <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <h5 class="mb-0">
+                    <button class="btn btn-link text-dark text-decoration-none shadow-none w-100 text-start p-0 fw-bold d-flex align-items-center"
+                            type="button" data-bs-toggle="collapse" data-bs-target="#collapseContattiInterni">
+                        <i class="bi bi-chevron-right me-2" id="chevron-contatti"></i>
+                        {% translate "Lista CONTATTI INTERNI" %}
+                    </button>
+                </h5>
+            </div>
+            <div id="collapseContattiInterni" class="collapse show">
+                <div class="card-body">
+                    <p class="text-muted small mb-3">{% translate "Quest'area è sempre disponibile al consulente per capire chi bisogna contattare in azienda." %}</p>
+                    <form method="post" id="contatti-form" action="{% url 'csirt_dashboard' %}?azienda_id={{ azienda.id }}">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="contatti">
+                        {{ contatti_formset.management_form }}
+                        {% if contatti_formset.non_form_errors %}
+                            <div class="alert alert-danger small">{{ contatti_formset.non_form_errors }}</div>
+                        {% endif %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{% translate "Nominativo" %}</th>
+                                        <th>{% translate "Ruolo" %}</th>
+                                        <th>{% translate "Telefono Ufficio" %}</th>
+                                        <th>{% translate "Mobile" %}</th>
+                                        <th>{% translate "Email" %}</th>
+                                        <th>{% translate "Tipo Disponibilità" %}</th>
+                                        <th>{% translate "Note" %}</th>
+                                        <th class="text-center">{% translate "Rimuovi" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contatto_form in contatti_formset %}
+                                        <tr>
+                                            <td>
+                                                {{ contatto_form.id }}
+                                                {{ contatto_form.nominativo }}
+                                                {% if contatto_form.nominativo.errors %}
+                                                    <div class="text-danger small">{{ contatto_form.nominativo.errors }}</div>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ contatto_form.ruolo }}</td>
+                                            <td>{{ contatto_form.telefono_ufficio }}</td>
+                                            <td>{{ contatto_form.mobile }}</td>
+                                            <td>{{ contatto_form.email }}</td>
+                                            <td>{{ contatto_form.tipo_disponibilita }}</td>
+                                            <td>{{ contatto_form.note }}</td>
+                                            <td class="text-center">
+                                                {{ contatto_form.DELETE }}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-end mt-3">
+                            <button type="submit" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-save me-1"></i> {% translate "Salva Contatti" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     {# --- COLONNA DESTRA: STRUMENTI E NOTIFICHE --- #}
@@ -167,6 +235,13 @@
         document.querySelectorAll('#csirt-form input, #csirt-form select').forEach(el => {
             el.classList.add('form-control', 'form-control-sm');
         });
+        document.querySelectorAll('#contatti-form input, #contatti-form select, #contatti-form textarea').forEach(el => {
+            if (el.type !== 'checkbox') {
+                el.classList.add('form-control', 'form-control-sm');
+            } else {
+                el.classList.add('form-check-input');
+            }
+        });
 
         // Gestione icone chevron
         const setupChevron = (collapseId, chevronId) => {
@@ -181,6 +256,7 @@
             }
         };
         setupChevron('collapseDesignazione', 'chevron-designazione');
+        setupChevron('collapseContattiInterni', 'chevron-contatti');
         setupChevron('collapseRegistro', 'chevron-registro');
     });
 </script>

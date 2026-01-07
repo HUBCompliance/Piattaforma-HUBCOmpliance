@@ -81,6 +81,48 @@
                 </div>
             </div>
         </div>
+
+        {# LISTA CONTATTI INTERNI #}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{% translate "Lista CONTATTI INTERNI" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">{% translate "Contatti interni utili per la gestione degli incidenti." %}</p>
+                {% if contatti_interni %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% translate "Nominativo" %}</th>
+                                    <th>{% translate "Ruolo" %}</th>
+                                    <th>{% translate "Telefono Ufficio" %}</th>
+                                    <th>{% translate "Mobile" %}</th>
+                                    <th>{% translate "Email" %}</th>
+                                    <th>{% translate "Tipo Disponibilità" %}</th>
+                                    <th>{% translate "Note" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for contatto in contatti_interni %}
+                                    <tr>
+                                        <td class="fw-semibold">{{ contatto.nominativo }}</td>
+                                        <td>{{ contatto.ruolo }}</td>
+                                        <td>{{ contatto.telefono_ufficio }}</td>
+                                        <td>{{ contatto.mobile }}</td>
+                                        <td>{{ contatto.email }}</td>
+                                        <td>{{ contatto.tipo_disponibilita }}</td>
+                                        <td>{{ contatto.note }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0">{% translate "Nessun contatto interno registrato." %}</p>
+                {% endif %}
+            </div>
+        </div>
         
         {# CARD 2: TEMPISTICHE NIS2 #}
         <div class="card shadow-sm mb-4 border-info">
