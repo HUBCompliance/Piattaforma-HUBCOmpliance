@@ -43,7 +43,72 @@
     </div>
   {% endif %}
 
-  {# SEZIONE 2: TUTTE LE AZIENDE GESTITE #}
+  {# SEZIONE 2: LISTA CONTATTI INTERNI #}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0">
+            <i class="bi bi-telephone-inbound me-2 text-primary"></i>{% translate "Lista CONTATTI INTERNI" %}
+          </h2>
+          <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#listaContattiInterni" aria-expanded="true" aria-controls="listaContattiInterni">
+            <i class="bi bi-chevron-down me-1"></i>{% translate "Apri/Chiudi" %}
+          </button>
+        </div>
+        <div class="collapse show" id="listaContattiInterni">
+          <div class="card-body">
+            <p class="text-muted mb-3">{% translate "Quest'area è sempre disponibile al consulente per capire chi bisogna contattare in azienda." %}</p>
+            <div class="table-responsive">
+              <table class="table table-striped align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>{% translate "Nominativo" %}</th>
+                    <th>{% translate "Ruolo" %}</th>
+                    <th>{% translate "Telefono Ufficio" %}</th>
+                    <th>{% translate "Mobile" %}</th>
+                    <th>{% translate "Email" %}</th>
+                    <th>{% translate "Tipo Disponibilità" %}</th>
+                    <th>{% translate "Note" %}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="fw-semibold">Giulia Bianchi</td>
+                    <td>{% translate "IT Manager" %}</td>
+                    <td>02 5555 1234</td>
+                    <td>349 555 9876</td>
+                    <td>giulia.bianchi@azienda.it</td>
+                    <td>{% translate "H24 Reperibilità" %}</td>
+                    <td>{% translate "Coordinamento tecnico incidenti" %}</td>
+                  </tr>
+                  <tr>
+                    <td class="fw-semibold">Marco Rinaldi</td>
+                    <td>{% translate "Responsabile Sicurezza" %}</td>
+                    <td>02 5555 5678</td>
+                    <td>347 111 2233</td>
+                    <td>marco.rinaldi@azienda.it</td>
+                    <td>{% translate "Business Hours" %}</td>
+                    <td>{% translate "Autorizzazioni e escalation" %}</td>
+                  </tr>
+                  <tr>
+                    <td class="fw-semibold">Elena Costa</td>
+                    <td>{% translate "HR Manager" %}</td>
+                    <td>02 5555 2468</td>
+                    <td>348 222 3344</td>
+                    <td>elena.costa@azienda.it</td>
+                    <td>{% translate "Business Hours" %}</td>
+                    <td>{% translate "Comunicazioni interne" %}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# SEZIONE 3: TUTTE LE AZIENDE GESTITE #}
   <div class="row">
     <div class="col-12">
       <h2 class="h3 mb-3">{% translate "Portafoglio Aziende Clienti" %}</h2>
