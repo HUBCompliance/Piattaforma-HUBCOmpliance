@@ -113,7 +113,7 @@ class AziendaAdmin(admin.ModelAdmin):
     filter_horizontal = ('manager_users',)
     
     fieldsets = (
-        ('Dettagli Azienda', {'fields': ('nome', 'p_iva', 'indirizzo')}),
+        ('Dettagli Azienda', {'fields': ('nome', 'p_iva', 'indirizzo', 'logo_principale', 'logo_attestato')}),
         ('Gestione e Stato', {'fields': ('is_active', 'manager_users')}),
         ('Configurazione Moduli Attivi', {
             'fields': (
