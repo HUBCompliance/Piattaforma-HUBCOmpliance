@@ -22,9 +22,10 @@ from courses.models import (
 )
 from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto, AdminReferente
 from .models import (
-    AuditCategoria, AuditDomanda, AuditSession, AuditRisposta,
+  AuditCategoria, AuditDomanda, AuditSession, AuditRisposta,
     Incidente, ReferenteCSIRT, NotificaIncidente, 
-    SecurityAudit, SecurityControl, SecurityResponse
+    SecurityAudit, SecurityControl, SecurityResponse,
+    Compito, Trattamento, DocumentoAziendale, Asset, Software
 )
 from .forms import (
     TrattamentoForm, DocumentoAziendaleForm, VersioneDocumentoForm,
