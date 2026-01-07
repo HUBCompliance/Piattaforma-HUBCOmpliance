@@ -2069,7 +2069,3 @@ def documento_list(request):
     azienda = get_azienda_current(request)
     documenti = DocumentoAziendale.objects.filter(azienda=azienda)
     return render(request, 'compliance/documento_list.html', {'documenti': documenti, 'azienda': azienda})
-
-def analisi_rischi_guida(request):
-    # Questa rotta corrisponde al nome nel tuo urls.py
-    return render(request, 'compliance/analisi_rischi_guida.html')
