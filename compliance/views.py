@@ -10,6 +10,7 @@ from django.db.models import Sum, Count, Q, Prefetch
 from django.http import HttpResponse, JsonResponse 
 from django.db import transaction 
 from django.forms.models import inlineformset_factory 
+from django.forms import modelformset_factory
 from django import forms 
 from django.urls import reverse_lazy
 from functools import wraps
@@ -23,7 +24,7 @@ from courses.models import (
 from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto, AdminReferente
 from .models import (
   AuditCategoria, AuditDomanda, AuditSession, AuditRisposta,
-    Incidente, ReferenteCSIRT, NotificaIncidente, 
+    Incidente, ReferenteCSIRT, ContattoInternoCSIRT, NotificaIncidente, 
     SecurityAudit, SecurityControl, SecurityResponse,
     Compito, Trattamento, DocumentoAziendale, Asset, Software,AllegatoNotifica
 )
@@ -32,7 +33,7 @@ from .forms import (
     IncidenteForm, RichiestaInteressatoForm, AuditChecklistForm,
     ReferenteStudenteForm, ConsulenteCreaReferenteForm,
     ConsulenteCompitoForm, AssetForm, SoftwareForm, RuoloPrivacyForm, TIAForm, VideosorveglianzaForm,
-    AziendaModuliForm, ReferenteCSIRTForm, NotificaIncidenteForm, 
+    AziendaModuliForm, ReferenteCSIRTForm, ContattoInternoCSIRTForm, NotificaIncidenteForm, 
     CSIRTTemplateForm, 
     ConfigurazioneReteForm, ComponenteReteFormSet, RuoloPrivacyFormSet,
 )
@@ -1079,6 +1080,13 @@ def csirt_dashboard(request):
     )
     
     notifiche_qs = NotificaIncidente.objects.filter(azienda=azienda)
+    contatti_qs = ContattoInternoCSIRT.objects.filter(azienda=azienda)
+    ContattiFormSet = modelformset_factory(
+        ContattoInternoCSIRT,
+        form=ContattoInternoCSIRTForm,
+        extra=1,
+        can_delete=True
+    )
     
     # --- LOGICA GENERAZIONE JSON GRAFICO ---
     # Usiamo NotificaIncidente.objects.all() per assicurarci di accedere ai Choices
@@ -1116,7 +1124,8 @@ def csirt_dashboard(request):
         'azienda': azienda,
         'titolo_pagina': _("Gestione Referente CSIRT (NIS2)"),
         'dati_grafico_stati_json': dati_grafico_stati_json, 
-        'is_consulente': (user.ruolo == 'CONSULENTE')
+        'is_consulente': (user.ruolo == 'CONSULENTE'),
+        'contatti_interni': contatti_qs.order_by('nominativo'),
     }
 
     # 4. SMISTAMENTO FINALE
@@ -1136,17 +1145,34 @@ def csirt_dashboard(request):
         except ImpostazioniSito.DoesNotExist:
             pass 
 
+        contatti_formset = ContattiFormSet(queryset=contatti_qs, prefix='contatti')
+        context['form'] = ReferenteCSIRTForm(instance=referente_csirt)
+
         if request.method == 'POST':
-            form = ReferenteCSIRTForm(request.POST, instance=referente_csirt)
-            if form.is_valid():
-                form.save()
-                messages.success(request, _("Dati Referente CSIRT aggiornati."))
-                return redirect('csirt_dashboard')
+            form_action = request.POST.get('form_action')
+            if form_action == 'contatti':
+                contatti_formset = ContattiFormSet(request.POST, queryset=contatti_qs, prefix='contatti')
+                if contatti_formset.is_valid():
+                    contatti = contatti_formset.save(commit=False)
+                    for contatto in contatti:
+                        contatto.azienda = azienda
+                        contatto.save()
+                    for contatto in contatti_formset.deleted_objects:
+                        contatto.delete()
+                    messages.success(request, _("Lista contatti interni aggiornata."))
+                    return redirect(f"{reverse_lazy('csirt_dashboard')}?azienda_id={azienda.id}")
+                messages.error(request, _("Errore nel salvataggio dei contatti interni."))
             else:
-                 messages.error(request, _("Errore nel salvataggio dei dati Referente. Controllare i campi."))
-                 context['form'] = form 
-        else:
-            context['form'] = ReferenteCSIRTForm(instance=referente_csirt)
+                form = ReferenteCSIRTForm(request.POST, instance=referente_csirt)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, _("Dati Referente CSIRT aggiornati."))
+                    return redirect(f"{reverse_lazy('csirt_dashboard')}?azienda_id={azienda.id}")
+                else:
+                     messages.error(request, _("Errore nel salvataggio dei dati Referente. Controllare i campi."))
+                     context['form'] = form
+        
+        context['contatti_formset'] = contatti_formset
             
         return render(request, 'compliance/csirt_dashboard.html', context)
         

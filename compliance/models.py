@@ -398,6 +398,24 @@ class ReferenteCSIRT(models.Model):
         verbose_name = _("Referente CSIRT (NIS2)")
         verbose_name_plural = _("Gestione Referente CSIRT (NIS2)")
 
+class ContattoInternoCSIRT(models.Model):
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, related_name='contatti_interni_csirt', verbose_name=_("Azienda"))
+    nominativo = models.CharField(max_length=150, verbose_name=_("Nominativo"))
+    ruolo = models.CharField(max_length=150, blank=True, verbose_name=_("Ruolo"))
+    telefono_ufficio = models.CharField(max_length=50, blank=True, verbose_name=_("Telefono Ufficio"))
+    mobile = models.CharField(max_length=50, blank=True, verbose_name=_("Mobile"))
+    email = models.EmailField(blank=True, verbose_name=_("Email"))
+    tipo_disponibilita = models.CharField(max_length=100, blank=True, verbose_name=_("Tipo Disponibilità"))
+    note = models.TextField(blank=True, verbose_name=_("Note"))
+
+    def __str__(self):
+        return f"{self.nominativo} - {self.azienda.nome}"
+
+    class Meta:
+        verbose_name = _("Contatto Interno CSIRT")
+        verbose_name_plural = _("Contatti Interni CSIRT")
+        ordering = ['nominativo']
+
 class NotificaIncidente(models.Model):
     CATEGORIA_CHOICES = (('RANSOMWARE', _('Ransomware')), ('DDOS', _('Attacco DDOS')), ('PHISHING', _('Phishing')), ('ACCESS_VIOLATION', _('Violazione Account')), ('MALWARE', _('Malware')))
     IMPATTO_CHOICES = (('CRITICO', _('Critico')), ('ALTO', _('Alto')), ('MEDIO', _('Medio')), ('BASSO', _('Basso')))

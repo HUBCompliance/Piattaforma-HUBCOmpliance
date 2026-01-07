@@ -10,7 +10,7 @@ from .models import (
     Incidente, RichiestaInteressato,
     AuditCategoria, AuditDomanda, AuditRisposta, AuditSession,
     Compito, Asset, Software, RuoloPrivacy, Paese, ValutazioneTIA, Videosorveglianza,
-    ReferenteCSIRT, NotificaIncidente, AllegatoNotifica, # <--- MODELLO AGGIUNTO
+    ReferenteCSIRT, ContattoInternoCSIRT, NotificaIncidente, AllegatoNotifica,
     ConfigurazioneRete, ComponenteRete 
 )
 # Importa i modelli necessari da altri moduli se usati nei form
@@ -210,6 +210,14 @@ class ReferenteCSIRTForm(forms.ModelForm):
         widgets = {
             'motivo_esterno': forms.Textarea(attrs={'rows': 3}),
             'data_nomina': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+class ContattoInternoCSIRTForm(forms.ModelForm):
+    class Meta:
+        model = ContattoInternoCSIRT
+        exclude = ['azienda']
+        widgets = {
+            'note': forms.Textarea(attrs={'rows': 2}),
         }
 
 class NotificaIncidenteForm(forms.ModelForm):
