@@ -25,7 +25,7 @@ from .models import (
   AuditCategoria, AuditDomanda, AuditSession, AuditRisposta,
     Incidente, ReferenteCSIRT, NotificaIncidente, 
     SecurityAudit, SecurityControl, SecurityResponse,
-    Compito, Trattamento, DocumentoAziendale, Asset, Software
+    Compito, Trattamento, DocumentoAziendale, Asset, Software,AllegatoNotifica
 )
 from .forms import (
     TrattamentoForm, DocumentoAziendaleForm, VersioneDocumentoForm,
