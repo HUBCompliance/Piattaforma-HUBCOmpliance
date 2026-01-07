@@ -10,6 +10,7 @@ from django.http import HttpResponse, Http404
 from django.template.loader import get_template, render_to_string
 from xhtml2pdf import pisa
 from io import BytesIO
+from .models import ImpostazioniSito
 import base64
 import pandas as pd
 import random
@@ -42,7 +43,9 @@ from user_auth.forms import ProfiloStudenteForm, AziendaProfileForm, SecurityLog
 
 
 # --- 1. Logica di Supporto (funzioni helper) ---
-
+def mia_funzione_api():
+    config = ImpostazioniSito.objects.get(pk=1)
+    api_key = config.pentest_tools_api_key
 def trigger_set_password_email(request, user):
     """
     Invia l'email usando il backend configurato in settings.py.
@@ -355,3 +358,60 @@ def profilo_studente(request):
     
     context = {'profilo_form': profilo_form, 'password_form': password_form, 'azienda_form': azienda_form, 'dashboard_url': dashboard_url}
     return render(request, 'profilo_studente.html', context)
+@login_required
+def avvia_scansione_deashed(request, azienda_id):
+    azienda = get_object_or_404(Azienda, pk=azienda_id)
+    dominio = request.GET.get('dominio_manuale')
+
+    # Se il dominio non c'è, rimaniamo sulla pagina e attiviamo il modulo
+    if not dominio:
+        return render(request, 'compliance/analisi_vulnerabilita.html', {
+            'azienda': azienda,
+            'richiedi_dominio': True  # Questo è il "segnale" per il template
+        })
+
+    # Se il dominio c'è, procediamo con la logica tecnica
+    # ... resto del codice ...
+
+    # Se arriviamo qui, abbiamo il dominio e possiamo chiamare l'API
+    # risultati = search_dehashed(dominio)
+    
+    messages.success(request, f"Scansione avviata per: {dominio}")
+    return render(request, 'compliance/analisi_vulnerabilita.html', {
+        'azienda': azienda,
+        'risultati': "Risultati simulati per " + dominio # Sostituisci con i dati reali
+    })
+from django.shortcuts import render, get_object_or_404
+from .utils import get_dns_report  # Importiamo la funzione creata prima
+from user_auth.models import Azienda # Assicurati che l'import sia corretto
+
+def analisi_dns_view(request, azienda_id):
+    """
+    Gestisce la pagina dedicata all'analisi DNS di un'azienda. 🌐
+    """
+    # 1. Recuperiamo l'azienda specifica
+    azienda = get_object_or_404(Azienda, id=azienda_id)
+    
+    # 2. Leggiamo il dominio dal parametro 'domain' nell'URL (es: ?domain=google.it)
+    dominio = request.GET.get('domain')
+    risultati = None
+    errore = None
+
+    # 3. Se l'utente ha fornito un dominio, facciamo l'analisi
+    if dominio:
+        dati_api = get_dns_report(dominio)
+        
+        # Controlliamo se l'API ha restituito un errore
+        if isinstance(dati_api, dict) and "error" in dati_api:
+            errore = dati_api["error"]
+        else:
+            risultati = dati_api
+
+    # 4. Passiamo tutto al template HTML
+    context = {
+        'azienda': azienda,
+        'dominio': dominio,
+        'risultati': risultati,
+        'errore': errore,
+    }
+    return render(request, 'analisi_dns.html', context)

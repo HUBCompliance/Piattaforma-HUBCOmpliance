@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from django.forms import inlineformset_factory
 from django.utils.translation import gettext_lazy as _
 
@@ -72,42 +73,65 @@ class RichiestaInteressatoForm(forms.ModelForm):
         }
 
 # ==============================================================================
-# 5. FORMS PER AUDIT
+# 5. FORMS PER AUDIT (AGGIORNATO PER REVISIONE STORICA)
 # ==============================================================================
 
+# In compliance/forms.py
+
 class AuditChecklistForm(forms.Form):
-    """
-    Form dinamico per l'Audit, gestito in views.py
-    """
-    def __init__(self, *args, sessione=None, domande=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        self.sessione = kwargs.pop('sessione', None)
+        self.domande = kwargs.pop('domande', None)
         super().__init__(*args, **kwargs)
-        self.sessione = sessione
-        self.domande = domande
         
-        if self.domande:
+        # Dizionari per caricare i dati esistenti
+        risposte_db = {}
+        note_db = {}
+        
+        if self.sessione:
             from .models import AuditRisposta
-            risposte_esistenti = {
-                r.domanda_id: r.risposta for r in AuditRisposta.objects.filter(sessione=sessione)
-            }
+            # Recuperiamo sia la risposta (bool) che la nota (text)
+            dati_db = AuditRisposta.objects.filter(sessione=self.sessione)
+            for r in dati_db:
+                risposte_db[r.domanda_id] = bool(r.risposta)
+                note_db[r.domanda_id] = r.note or ""
+
+        if self.domande:
             for domanda in self.domande:
-                field_name = f'domanda_{domanda.id}'
-                self.fields[field_name] = forms.BooleanField(
+                # 1. Campo Checkbox (Sì/No)
+                self.fields[f'domanda_{domanda.id}'] = forms.BooleanField(
                     label=domanda.testo,
                     required=False,
-                    initial=risposte_esistenti.get(domanda.id, False),
+                    initial=risposte_db.get(domanda.id, False),
                     widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+                )
+                # 2. NUOVO: Campo Note (Testo)
+                self.fields[f'nota_{domanda.id}'] = forms.CharField(
+                    required=False,
+                    initial=note_db.get(domanda.id, ""),
+                    widget=forms.Textarea(attrs={
+                        'class': 'form-control mt-2',
+                        'rows': 2,
+                        'placeholder': _("Inserisci note o osservazioni...")
+                    })
                 )
     
     def save(self):
         from .models import AuditRisposta
-        for field_name, value in self.cleaned_data.items():
-            domanda_id = field_name.split('_')[1]
-            domanda = self.domande.get(id=domanda_id)
+        # Troviamo tutti gli ID domanda presenti nel form
+        domanda_ids = set(key.split('_')[1] for key in self.cleaned_data.keys())
+        
+        for d_id in domanda_ids:
+            valore_bool = self.cleaned_data.get(f'domanda_{d_id}', False)
+            valore_nota = self.cleaned_data.get(f'nota_{d_id}', "")
             
             AuditRisposta.objects.update_or_create(
                 sessione=self.sessione,
-                domanda=domanda,
-                defaults={'risposta': value}
+                domanda_id=d_id,
+                defaults={
+                    'risposta': valore_bool,
+                    'note': valore_nota  # Salviamo la nota nel DB
+                }
             )
 
 # ==============================================================================
@@ -139,6 +163,14 @@ class ReferenteStudenteForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email']
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Allinea sempre lo username all'email per rispettare il vincolo di unicità
+        instance.username = self.cleaned_data.get('email', instance.username)
+        if commit:
+            instance.save()
+        return instance
 
 # ==============================================================================
 # 8. FORMS PER CONFIGURAZIONE MODULI (Azienda)

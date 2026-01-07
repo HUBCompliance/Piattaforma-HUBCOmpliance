@@ -69,33 +69,46 @@
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-light mb-4">
-        <div class="container">
+   <nav class="navbar navbar-expand-lg navbar-light mb-4">
+    <div class="container">
+        
+        {# === LOGICA DINAMICA PER IL BRAND === #}
+        {% if request.user.is_authenticated %}
+            {% if request.user.ruolo == 'CONSULENTE' %}
+                {% url 'dashboard_consulente' as target_url %}
+            {% elif request.user.ruolo == 'REFERENTE' %}
+                {% url 'dashboard_compliance' as target_url %}
+            {% else %}
+                {% url 'dashboard_studente' as target_url %}
+            {% endif %}
+        {% else %}
+            {% url 'login' as target_url %}
+        {% endif %}
+
+        <a class="navbar-brand d-flex align-items-center" href="{{ target_url }}">
             
-            {# === NUOVO BLOCCO BRAND NELL'HEADER === #}
-            <a class="navbar-brand d-flex align-items-center" href="{% url 'dashboard_studente' %}">
-                
-                {# LOGO AZIENDA (SINISTRA - Dinamico per utente loggato) #}
-                {% if request.user.is_authenticated and azienda_corrente and azienda_corrente.logo_principale %}
-                    <img src="{{ azienda_corrente.logo_principale.url }}" alt="Logo Azienda" class="logo-azienda">
-                {% endif %}
-                
-                {# LOGO PIATTAFORMA (DESTRA - Brand principale) #}
-                {% if config.logo_principale %}
-                    <img src="{{ config.logo_principale.url }}" alt="Logo Piattaforma" class="logo-piattaforma">
-                {% else %}
-                    <strong>{{ config.nome_piattaforma|default:"Piattaforma" }}</strong>
-                {% endif %}
-            </a>
+            {# LOGO AZIENDA (SINISTRA - Dinamico per utente loggato) #}
+            {% if request.user.is_authenticated and azienda_corrente and azienda_corrente.logo_principale %}
+                <img src="{{ azienda_corrente.logo_principale.url }}" alt="Logo Azienda" class="logo-azienda">
+            {% endif %}
+            
+            {# LOGO PIATTAFORMA (DESTRA - Brand principale) #}
+            {% if config.logo_principale %}
+                <img src="{{ config.logo_principale.url }}" alt="Logo Piattaforma" class="logo-piattaforma">
+            {% else %}
+                <strong>{{ config.nome_piattaforma|default:"HUBCompliance" }}</strong>
+            {% endif %}
+        </a>
             {# ========================================================================================================= #}
             
             <div class="d-flex align-items-center">
                 
                 {% if user.is_authenticated %}
                     {# Tasto Dashboard Principale #}
-                    <a href="{% url 'dashboard_studente' %}" class="btn btn-outline-info btn-sm me-3">
-                        <i class="bi bi-house-door-fill"></i> {% translate "Dashboard Principale" %}
-                    </a>
+                    <a href="{% if request.user.ruolo == 'CONSULENTE' %}/compliance/consulente/{% elif request.user.ruolo == 'REFERENTE' %}/compliance/dashboard/{% else %}/{% endif %}" 
+                      class="btn btn-outline-info btn-sm me-3">
+                     <i class="bi bi-house-door-fill"></i> Dashboard Principale
+                     </a>
                     
                     <span class="navbar-text me-3 d-none d-md-block">
                         {% translate "Benvenuto," %} **{{ user.first_name|default:user.username }}**

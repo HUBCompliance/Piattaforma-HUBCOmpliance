@@ -1,7 +1,6 @@
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-# Se usi colorfield
 from colorfield.fields import ColorField 
 from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto, AdminReferente, NotaAzienda 
 
@@ -13,7 +12,7 @@ def upload_path_config(instance, filename):
     return f'site_media/config/{filename}'
 
 # ==============================================================================
-# MODELLI CORSI (Invariati)
+# MODELLI CORSI
 # ==============================================================================
 
 class CategoriaCorso(models.Model):
@@ -96,7 +95,7 @@ class Attestato(models.Model):
     class Meta: verbose_name_plural = _("Attestati")
 
 # ==============================================================================
-# IMPOSTAZIONI SITO (Con Campo Template CSIRT)
+# IMPOSTAZIONI SITO (CONFIGURAZIONE NIS2 E SICUREZZA)
 # ==============================================================================
 
 class ImpostazioniSito(models.Model):
@@ -123,8 +122,54 @@ class ImpostazioniSito(models.Model):
     
     # === CAMPO AI ===
     gemini_api_key = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Chiave API Google Gemini"))
+    # CAMPI DEASHED 
+    dehashed_email = models.EmailField(max_length=255, blank=True, null=True)
+    dehashed_api_key = models.CharField(max_length=255, blank=True, null=True)
+    # === CONFIGURAZIONE NESSUS (NIS2 Art. 21) ===
+    nessus_url = models.URLField(
+        max_length=255, 
+        default="https://localhost:8834",
+        verbose_name=_("URL Server Nessus"),
+        help_text=_("Indirizzo del server Nessus per la scansione asset.")
+    )
+    nessus_access_key = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("Nessus Access Key"),
+        help_text=_("Chiave di accesso generata in Nessus (Settings -> My Account -> API Keys).")
+    )
+    nessus_secret_key = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("Nessus Secret Key"),
+        help_text=_("Chiave segreta generata in Nessus.")
+    )
+    # === CONFIGURAZIONE PENTEST-TOOLS ===
+    pentest_tools_api_key = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("Pentest-Tools API Key"),
+        help_text=_("Chiave API recuperata dal profilo di Pentest-Tools.")
+    )
+    pentest_tools_api_url = models.URLField(
+        max_length=255, 
+        default="https://api.pentest-tools.com/v2",
+        verbose_name=_("URL API Pentest-Tools"),
+        help_text=_("URL base per le chiamate API (default v2).")
+    )
+    # === CONFIGURAZIONE VIEWDNS ===
+    viewdns_api_key = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("ViewDNS API Key"),
+        help_text=_("Chiave API per i servizi di ViewDNS.info")
+    )
 
-    # === NUOVO CAMPO TEMPLATE CSIRT (Era questo che mancava!) ===
+    # === TEMPLATE CSIRT ===
     template_nomina_csirt = models.FileField(
         upload_to=upload_path_config, 
         blank=True, 
@@ -132,11 +177,12 @@ class ImpostazioniSito(models.Model):
         verbose_name=_("Template Word Nomina CSIRT"),
         help_text=_("Carica qui il file .docx con i segnaposto.")
     )
-    # ============================================================
 
     def save(self, *args, **kwargs):
         self.pk = 1 
         super().save(*args, **kwargs)
 
     def __str__(self): return "Impostazioni Generali" 
-    class Meta: verbose_name = _("Impostazioni Sito"); verbose_name_plural = _("Impostazioni Sito")
+    class Meta: 
+        verbose_name = _("Impostazioni Sito")
+        verbose_name_plural = _("Impostazioni Sito")

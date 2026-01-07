@@ -1,0 +1,78 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="bi bi-shield-lock-fill text-primary me-2"></i>
+            {% translate "Analisi Vulnerabilità" %} - {{ azienda.nome }}
+        </h1>
+        <a href="{% url 'dashboard_consulente' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Torna alla Dashboard
+        </a>
+    </div>
+
+    {% if richiedi_dominio %}
+    <div class="alert alert-info border-primary shadow-sm mb-4">
+        <h5 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Configurazione Scansione</h5>
+        <p>Inserisci il dominio da analizzare per <strong>{{ azienda.nome }}</strong> su DeHashed:</p>
+        <form method="GET" action="{% url 'avvia_scansione_deashed' azienda.id %}" class="row g-3">
+            <div class="col-auto">
+                <input type="text" name="dominio_manuale" class="form-control" placeholder="es. azienda.it" required>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-play-fill"></i> Conferma e Scansiona
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Dettagli Scansione DeHashed</h6>
+            {% if dominio_scansionato %}
+                <span class="badge bg-success">Target: {{ dominio_scansionato }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if risultati %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Email / Username</th>
+                                <th>Database / Fonte</th>
+                                <th>Data Rilevata</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leak in risultati %}
+                            <tr>
+                                <td><code>{{ leak.email }}</code></td>
+                                <td>
+                                    <span class="badge bg-danger text-white">
+                                        {{ leak.database_name }}
+                                    </span>
+                                </td>
+                                <td>{{ leak.date|default:"N/A" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-search fa-3x text-gray-200 mb-3"></i>
+                    <p class="text-muted">Nessuna scansione recente trovata o nessun dato rilevato.</p>
+                    <a href="{% url 'avvia_scansione_deashed' azienda.id %}" class="btn btn-primary">
+                        <i class="bi bi-play-fill"></i> Avvia Nuova Scansione
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -2,255 +2,157 @@
 {% load i18n static %}
 {% load organigramma_tags %} 
 
-{% block title %}{% translate "Organigramma Privacy" %}{% endblock %}
+{% block title %}{{ titolo_pagina }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid pt-4 px-4">
     
-    <div class="row g-4">
-        <div class="col-12">
-            <h2 class="mb-4">{{ titolo_pagina }}</h2>
-            {% include "messages.html" %}
-        </div>
-    </div>
-    
+    {# INTESTAZIONE PAGINA #}
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <div class="bg-light rounded h-100 p-4">
-                <h5 class="mb-3">{% translate "Visualizzazione Gerarchica" %}</h5>
-                <p class="text-muted">{% translate "Il grafico sarà generato automaticamente quando avrai salvato almeno un Titolare del Trattamento o un Responsabile del Trattamento." %}</p>
-                
-                {# Estrazione dei ruoli tramite il filtro CORRETTO: get_ruoli_by_type #}
-                {% with ruoli_master=azienda|get_ruoli_by_type:'TITOLARE' %} 
-                {% with ruoli_resp=azienda|get_ruoli_by_type:'RESPONSABILE_TRATTAMENTO' %}
-                {% with ruoli_dpo=azienda|get_ruoli_by_type:'DPO' %}
-                
-                    {% if can_render_visual %}
-                        
-                        <h4 class="mb-4">{% translate "Struttura di Responsabilità GDPR" %}</h4>
-                        
-                        <style>
-                            /* CSS per disegnare le caselle e i collegamenti */
-                            .organigramma-node {
-                                border: 2px solid var(--bs-primary);
-                                border-radius: 8px;
-                                padding: 10px;
-                                margin: 15px auto;
-                                width: 300px;
-                                text-align: center;
-                                background-color: #f0f8ff; 
-                                position: relative;
-                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                                transition: transform 0.2s;
-                            }
-                            .organigramma-node:hover {
-                                transform: translateY(-3px);
-                            }
-                            .organigramma-root {
-                                background-color: var(--bs-primary);
-                                color: white;
-                                border-color: var(--bs-primary);
-                                margin-bottom: 30px;
-                            }
-                        </style>
-
-                        <div id="visual-organigramma" class="text-center">
-                            
-                            {# NODO RADICE: TITOLARE #}
-                            <div class="organigramma-node organigramma-root">
-                                <small class="text-uppercase fw-bold">{% translate "Livello di Controllo" %}</small>
-                                <h5 class="mb-0">{{ ruoli_master.nome_cognome|default:"[TITOLARE MANCANTE]" }}</h5>
-                                <small>{% translate "Titolare del Trattamento" %}</small>
-                            </div>
-                            
-                            <div class="d-flex justify-content-center">
-                                <div style="width: 2px; height: 30px; background-color: #aaa; margin: 0 auto;"></div>
-                            </div>
-
-                            {# LIVELLO 2: RESPONSABILE / DPO (Affiancati) #}
-                            <div class="d-flex justify-content-center mt-4">
-                                <div class="d-flex justify-content-around w-100" style="max-width: 650px;">
-
-                                    {# BOX RESPONSABILE #}
-                                    <div class="organigramma-node me-4">
-                                        <small class="text-secondary fw-bold">{% translate "Responsabilità Delegata" %}</small>
-                                        <h5 class="mb-0">{{ ruoli_resp.nome_cognome|default:"[RESPONSABILE MANCANTE]" }}</h5>
-                                        <small>{% translate "Responsabile del Trattamento" %}</small>
-                                    </div>
-
-                                    {# BOX DPO #}
-                                    <div class="organigramma-node ms-4">
-                                        <small class="text-secondary fw-bold">{% translate "Consulenza e Vigilanza" %}</small>
-                                        <h5 class="mb-0">{{ ruoli_dpo.nome_cognome|default:"[DPO MANCANTE]" }}</h5>
-                                        <small>{% translate "DPO (Responsabile Protezione Dati)" %}</small>
-                                    </div>
-
-                                </div>
-                            </div>
-                            
-                        </div>
-                        
-                    {% else %}
-                        <div class="alert alert-warning">
-                            {% translate "Salva un Titolare o un Responsabile del Trattamento per visualizzare il grafico." %}
-                        </div>
-                    {% endif %}
-
-                {% endwith %}
-                {% endwith %}
-                {% endwith %}
-            </div>
+            <h2 class="mb-2">{{ titolo_pagina }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard_consulente' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">{{ azienda.ragione_sociale }}</li>
+                </ol>
+            </nav>
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
         </div>
     </div>
-    
-    {# --------------------------------------------------------------------------------------------------------- #}
-    {# SEZIONE 2: EDITING DEI RUOLI (FORMSET) #}
-    {# --------------------------------------------------------------------------------------------------------- #}
+
+    {# 1. SEZIONE GESTIONE RUOLI (ACCORDION) #}
     <div class="row g-4">
         <div class="col-12">
-            <div class="bg-light rounded h-100 p-4">
-                <h5 class="mb-4">{% translate "Gestione Ruoli Privacy" %}</h5>
-                <p class="text-muted">{% translate "Utilizza questa sezione per definire i ruoli privacy e registrare gli atti di nomina. I ruoli con 'Cancella Ruolo' selezionato saranno rimossi al salvataggio." %}</p>
-                
-                <form method="post" id="organigramma-form" enctype="multipart/form-data" class="formset-container">
+            <div class="bg-light rounded p-4 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">{% translate "Gestione Ruoli e Atti di Nomina" %}</h5>
+                    <span class="badge bg-info text-dark">Azienda: {{ azienda.ragione_sociale }}</span>
+                </div>
+                <p class="text-muted small mb-4">
+                    {% translate "Clicca su un ruolo per espandere e modificare i dettagli o caricare l'atto di nomina." %}
+                </p>
+
+                <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
-                    
                     {{ ruoli_formset.management_form }}
-                    
-                    <div id="formset-area" class="d-grid gap-3">
+
+                    <div class="accordion shadow-sm" id="accordionRuoli">
                         {% for form in ruoli_formset %}
-                            
-                            {# === TAG WITH APERTO E CHIUSO CORRETTAMENTE PER OGNI RIGA === #}
-                            {% with 
-                                ruolo_tipo=form|get_item:'ruolo_tipo'
-                                nome_cognome=form|get_item:'nome_cognome'
-                                contatti=form|get_item:'contatti'
-                                atto_nomina=form|get_item:'atto_nomina'
-                                id_field=form|get_item:'id'
-                                delete_field=form|get_item:'DELETE'
-                            %}
-                            
-                                <div class="row mb-3 p-3 border rounded form-row {% if form.errors %}has-errors border-danger{% endif %}" 
-                                    id="form-{{ forloop.counter0 }}"
-                                    {% if not form.instance.pk and forloop.last %}style="display: none;"{% endif %}> 
-                                    
-                                    {% if form.instance.pk %}
-                                        <h6 class="border-bottom pb-2 mb-3 text-primary">{% translate "Ruolo Esistente" %} ID: {{ form.instance.pk }}</h6>
-                                    {% else %}
-                                        <h6 class="border-bottom pb-2 mb-3 text-success">{% translate "Nuovo Ruolo" %}</h6>
-                                    {% endif %}
-                                    
-                                    {% if form.non_field_errors %}
-                                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-                                    {% endif %}
-                                    
-                                    <div class="col-md-3">
-                                        <label class="form-label">{{ ruolo_tipo.label }}</label>
-                                        {{ ruolo_tipo }}
-                                        {% if ruolo_tipo.errors %}<div class="text-danger small">{{ ruolo_tipo.errors }}</div>{% endif %}
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">{{ nome_cognome.label }}</label>
-                                        {{ nome_cognome }}
-                                        {% if nome_cognome.errors %}<div class="text-danger small">{{ nome_cognome.errors }}</div>{% endif %}
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">{{ contatti.label }}</label>
-                                        {{ contatti }}
-                                        {% if contatti.errors %}<div class="text-danger small">{{ contatti.errors }}</div>{% endif %}
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">{{ atto_nomina.label }}</label>
-                                        {{ atto_nomina }}
-                                        {% if atto_nomina.errors %}<div class="text-danger small">{{ atto_nomina.errors }}</div>{% endif %}
-                                        {% if form.instance.atto_nomina %}
-                                            <div class="mt-1 small"><a href="{{ form.instance.atto_nomina.url }}" target="_blank">{% translate "Scarica Atto Attuale" %}</a></div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
+                                        <div class="d-flex justify-content-between w-100 me-3">
+                                            <span>
+                                                <i class="bi bi-person-check-fill me-2 text-primary"></i>
+                                                {% if form.instance.nome_cognome %}
+                                                    <strong>{{ form.instance.get_ruolo_tipo_display }}</strong> - {{ form.instance.nome_cognome }}
+                                                {% else %}
+                                                    <span class="text-muted italic">{% translate "Nuovo Ruolo da Assegnare..." %}</span>
+                                                {% endif %}
+                                            </span>
+                                            {% if form.instance.atto_nomina %}
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                    <i class="bi bi-file-earmark-check"></i> Nomina Caricata
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#accordionRuoli">
+                                    <div class="accordion-body bg-white">
+                                        {# Campi Nascosti #}
+                                        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                                        
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">Tipo Ruolo</label>
+                                                {{ form.ruolo_tipo }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">Nome e Cognome</label>
+                                                {{ form.nome_cognome }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">Contatti (Email/Tel)</label>
+                                                {{ form.contatti }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">Atto Nomina (PDF)</label>
+                                                {{ form.atto_nomina }}
+                                                {% if form.instance.atto_nomina %}
+                                                    <div class="mt-2">
+                                                        <a href="{{ form.instance.atto_nomina.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                                            <i class="bi bi-download"></i> Scarica Nomina
+                                                        </a>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        {% if form.instance.pk %}
+                                            <hr>
+                                            <div class="text-end">
+                                                <div class="form-check d-inline-block text-danger">
+                                                    {{ form.DELETE }}
+                                                    <label class="form-check-label small fw-bold" for="{{ form.DELETE.id_for_label }}">
+                                                        {% translate "Elimina questo ruolo" %}
+                                                    </label>
+                                                </div>
+                                            </div>
                                         {% endif %}
                                     </div>
-
-                                    
-                                    {{ id_field }} 
-                                    
-                                    <div class="col-12 mt-3 d-flex justify-content-end align-items-center">
-                                        <div class="form-check form-switch me-3">
-                                            {{ delete_field }}
-                                            <label class="form-check-label" for="{{ delete_field.id_for_label }}">{% translate "Cancella Ruolo" %}</label>
-                                        </div>
-                                    </div>
-                                    
                                 </div>
+                            </div>
                         {% endfor %}
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary mt-4 me-2">{% translate "Salva Organigramma" %}</button>
-                    <button type="button" class="btn btn-secondary mt-4" id="add-form">{% translate "Aggiungi Ruolo" %}</button>
+
+                    <div class="mt-4 border-top pt-3">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-check-circle me-2"></i>{% translate "Salva Tutte le Modifiche" %}
+                        </button>
+                        <a href="{% url 'dashboard_consulente' %}" class="btn btn-link text-secondary">{% translate "Annulla" %}</a>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
+
+    {# 2. PARTE VISIVA A BLOCCHI (GRAFICO) #}
+    {% if can_render_visual %}
+    <div class="row g-4 mt-2">
+        <div class="col-12 text-center">
+            <div class="bg-white rounded p-5 shadow-sm border">
+                <h4 class="mb-5">{% translate "Organigramma Gerarchico Aziendale" %}</h4>
+                
+                <div class="organigramma-visual-container overflow-auto py-3">
+                    {# Richiamo del tag che genera la struttura gerarchica #}
+                    {% render_organigramma_visual azienda %}
+                </div>
+                
+                <p class="mt-4 text-muted small">
+                    <i class="bi bi-info-circle"></i> {% translate "Questo grafico è generato automaticamente dai ruoli apicali salvati sopra." %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="alert alert-warning border-warning shadow-sm">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                {% translate "Per visualizzare il grafico dell'organigramma, è necessario salvare almeno un 'Titolare' o un 'Responsabile del Trattamento'." %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
-
-
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-
-{% block extra_js %}
-<script>
-    // Utilizziamo l'oggetto jQuery standard ($)
-    (function($) {
-        $(document).ready(function() {
-            
-            // Applica classi form-control a tutti i campi
-            document.querySelectorAll('#organigramma-form input:not([type="checkbox"]):not([type="submit"]), #organigramma-form select, #organigramma-form textarea').forEach(function(el) {
-                if (!el.classList.contains('form-control')) {
-                    el.classList.add('form-control');
-                }
-            });
-
-            
-            var $editContainer = $('#formset-area');
-            var $totalForms = $('#id_ruoloprivacy_set-TOTAL_FORMS');
-            var $addButton = $('#add-form');
-            
-            // 1. Definiamo l'HTML template della riga vuota
-            var $lastForm = $container.find('.form-row:last');
-            
-            if ($lastForm.length > 0) {
-                // Cattura l'HTML e sostituisce l'indice numerico con __prefix__
-                emptyFormHtml = $lastForm[0].outerHTML.replace(new RegExp($totalForms.val() - 1, 'g'), '__prefix__');
-                
-                // Rimuoviamo l'ultimo form (il template vuoto) dal DOM visibile
-                $lastForm.remove(); 
-            } else {
-                // Fallback se non c'è una riga iniziale (non dovrebbe accadere con extra=1)
-                return;
-            }
-            
-            // Funzione per l'inizializzazione del Formset
-            $addButton.on('click', function(e) {
-                e.preventDefault();
-                var total = parseInt($totalForms.val());
-                
-                // 1. Clona il template e sostituisce l'indice
-                var $newForm = $(emptyFormHtml.replace(/__prefix__/g, total));
-                
-                // Pulisce i valori e rimuove i flag di cancellazione
-                $newForm.find('input, select, textarea').val('');
-                $newForm.find('input[type="checkbox"]').prop('checked', false);
-                
-                // Aggiorna l'intestazione e rimuove le classi d'errore
-                $newForm.find('h6').text('{% translate "Nuovo Ruolo" %}');
-                $newForm.find('.text-danger, .alert-danger').remove(); 
-                $newForm.removeClass('d-none').show();
-                
-                // 2. Appendi il nuovo form e incrementa il contatore
-                $editContainer.append($newForm);
-                $totalForms.val(total + 1); // Incrementa il contatore totale (cruciale)
-
-                // 3. Applica stili Bootstrap
-                $newForm.find('input:not([type="checkbox"]):not([type="submit"]), select, textarea').addClass('form-control');
-            });
-
-        });
-    })(jQuery);
-</script>
-{% endblock %}  
+{% endblock content %}

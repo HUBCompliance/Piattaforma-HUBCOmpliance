@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.contrib.sites.shortcuts import get_current_site
 from django.http import HttpResponse, JsonResponse 
 import requests
+import urllib3
 
 # Importazioni locali
 from .models import CustomUser as User, Azienda, Consulente
@@ -58,12 +59,36 @@ def is_profilo_user(user):
 # --- VISTE PRINCIPALI ---
 
 def login_view(request):
+    if request.user.is_authenticated:
+        # Se l'utente è già loggato e prova ad andare su /login, lo smistiamo subito
+        return redirect_after_login(request.user)
+
     if request.method == 'POST':
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
-            login(request, form.get_user())
-            return redirect('/') 
+            user = form.get_user()
+            login(request, user)
+            messages.success(request, f"Benvenuto, {user.username}!")
+            # Chiamiamo la funzione helper per il reindirizzamento
+            return redirect_after_login(user)
+        else:
+            messages.error(request, "Credenziali non valide. Riprova.")
+    
     return render(request, 'registration/login.html', {'form': LoginForm()})
+
+def redirect_after_login(user):
+    """
+    Helper function per gestire la logica di smistamento in base al ruolo.
+    Garantisce che ogni figura NIS2 atterri sulla sua area di competenza.
+    """
+    if user.ruolo == 'CONSULENTE':
+        return redirect('/compliance/consulente/')
+    elif user.ruolo == 'REFERENTE':
+        return redirect('/compliance/dashboard/') # URL del cruscotto operativo
+    elif user.ruolo == 'STUDENTE':
+        return redirect('/dashboard_studente/') # Dashboard e-learning
+    else:
+        return redirect('/') # Home generica per ADMIN o ruoli non definiti
 
 def logout_view(request):
     logout(request)
@@ -138,3 +163,16 @@ class CustomPasswordResetCompleteView(DjangoPasswordResetCompleteView): template
 
 def export_aziende_excel(request):
     return HttpResponse("Export logic...")
+def register_view(request):
+    """
+    Vista per la registrazione nuovi utenti.
+    """
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Registrazione effettuata con successo. Ora puoi accedere.")
+            return redirect('login')
+    else:
+        form = RegisterForm()
+    return render(request, 'registration/register.html', {'form': form})

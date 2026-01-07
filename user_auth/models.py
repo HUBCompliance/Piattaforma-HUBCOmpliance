@@ -3,16 +3,13 @@ from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 
 # ==============================================================================
-# 0. FUNZIONI HELPER PER IL CARICAMENTO FILE (Risoluzione Attribute Error)
+# 0. FUNZIONI HELPER PER IL CARICAMENTO FILE
 # ==============================================================================
 
 def upload_path_azienda_logo(instance, filename):
-    """Definisce il percorso di caricamento per il logo dell'azienda (usato nelle vecchie migrazioni)."""
-    # Questo è un percorso generico per il logo principale
     return f'aziende/{instance.pk}/logos/principale/{filename}'
 
 def upload_path_azienda_attestato(instance, filename):
-    """Definisce il percorso di caricamento per il logo dell'attestato (Risolve l'AttributeError)."""
     return f'aziende/{instance.pk}/logos/attestato/{filename}'
 
 # ==============================================================================
@@ -20,7 +17,6 @@ def upload_path_azienda_attestato(instance, filename):
 # ==============================================================================
 
 class Prodotto(models.Model):
-    """Rappresenta un servizio, un corso o un prodotto vendibile sulla piattaforma."""
     nome = models.CharField(max_length=255, unique=True, verbose_name=_("Nome Prodotto"))
     descrizione = models.TextField(blank=True, verbose_name=_("Descrizione"))
     prezzo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -33,9 +29,8 @@ class Prodotto(models.Model):
     def __str__(self):
         return self.nome
 
-
 # ==============================================================================
-# 2. MODELLO AZIENDA (Con manager_users e flag moduli)
+# 2. MODELLO AZIENDA (Gerarchia Admin > Consulente)
 # ==============================================================================
 
 class Azienda(models.Model):
@@ -43,25 +38,44 @@ class Azienda(models.Model):
     p_iva = models.CharField(max_length=20, unique=False, verbose_name=_("P.IVA/Cod. Fisc."))
     indirizzo = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Indirizzo Sede"))
     
-    # Campi di configurazione moduli (gestiti dal Consulente)
+    # --------------------------------------------------------------------------
+    # A. PERMESSI MASTER (GESTITI SOLO DALL'ADMIN)
+    # Decidono quali moduli il Consulente PUÒ vedere e attivare
+    # --------------------------------------------------------------------------
+    can_mod_trattamenti = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Registro Trattamenti"))
+    can_mod_documenti = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Gestione Documentale"))
+    can_mod_audit = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Audit Compliance"))
+    can_mod_incidenti = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Segnalazione Incidenti"))
+    can_mod_richieste = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Richieste Interessati"))
+    can_mod_formazione = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Gestione Formazione"))
+    can_mod_videosorveglianza = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Videosorveglianza"))
+    can_mod_tia = models.BooleanField(default=True, verbose_name=_("Admin: Permetti TIA Estero"))
+    can_mod_organigramma = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Organigramma Privacy"))
+    can_mod_csirt = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Gestione CSIRT (NIS2)"))
+
+    # --------------------------------------------------------------------------
+    # B. ATTIVAZIONE MODULI (GESTITI DAL CONSULENTE)
+    # Decidono cosa il Referente Aziendale vede effettivamente in Dashboard
+    # --------------------------------------------------------------------------
     mod_cruscotto = models.BooleanField(default=True, verbose_name=_("Attiva Cruscotto principale"))
-    mod_trattamenti = models.BooleanField(default=True, verbose_name=_("Attiva Registro Trattamenti"))
-    mod_documenti = models.BooleanField(default=True, verbose_name=_("Attiva Gestione Documenti"))
-    mod_audit = models.BooleanField(default=True, verbose_name=_("Attiva Audit Compliance"))
-    mod_incidenti = models.BooleanField(default=True, verbose_name=_("Attiva Segnalazione Incidenti"))
-    mod_richieste = models.BooleanField(default=True, verbose_name=_("Attiva Richieste Interessati"))
-    mod_formazione = models.BooleanField(default=True, verbose_name=_("Attiva Gestione Formazione"))
+    mod_trattamenti = models.BooleanField(default=False, verbose_name=_("Attiva Registro Trattamenti"))
+    mod_documenti = models.BooleanField(default=False, verbose_name=_("Attiva Gestione Documenti"))
+    mod_audit = models.BooleanField(default=False, verbose_name=_("Attiva Audit Compliance"))
+    mod_incidenti = models.BooleanField(default=False, verbose_name=_("Attiva Segnalazione Incidenti"))
+    mod_richieste = models.BooleanField(default=False, verbose_name=_("Attiva Richieste Interessati"))
+    mod_formazione = models.BooleanField(default=False, verbose_name=_("Attiva Gestione Formazione"))
     mod_storico_audit = models.BooleanField(default=True, verbose_name=_("Attiva Storico Sessioni Audit"))
     mod_videosorveglianza = models.BooleanField(default=False, verbose_name=_("Attiva Videosorveglianza"))
     mod_tia = models.BooleanField(default=False, verbose_name=_("Attiva TIA Estero"))
     mod_organigramma = models.BooleanField(default=False, verbose_name=_("Attiva Organigramma Privacy"))
     mod_csirt = models.BooleanField(default=False, verbose_name=_("Attiva Gestione CSIRT (NIS2)"))
     
-    # Campi Logo (Mantenuti per compatibilità con le vecchie migrazioni)
+    # --------------------------------------------------------------------------
+    # C. ALTRI CAMPI AZIENDA
+    # --------------------------------------------------------------------------
     logo_principale = models.ImageField(upload_to=upload_path_azienda_logo, blank=True, null=True, verbose_name=_("Logo Principale"))
     logo_attestato = models.ImageField(upload_to=upload_path_azienda_attestato, blank=True, null=True, verbose_name=_("Logo Attestato"))
     
-    # AZIONE FORTE: Relazione di gestione diretta (risolve il problema Consulente)
     manager_users = models.ManyToManyField(
         'user_auth.CustomUser', 
         related_name='aziende_gestite_direttamente', 
@@ -79,7 +93,7 @@ class Azienda(models.Model):
         return self.nome
         
 # ==============================================================================
-# 3. MODELLO CUSTOMUSER (Utenti con Ruoli)
+# 3. MODELLO CUSTOMUSER
 # ==============================================================================
 
 class CustomUser(AbstractUser):
@@ -91,7 +105,6 @@ class CustomUser(AbstractUser):
     )
     ruolo = models.CharField(max_length=20, choices=RUOLI_CHOICES, default='STUDENTE', verbose_name=_("Ruolo Utente"))
     
-    # Associazione all'Azienda (per REFERENTE e STUDENTE). Null per ADMIN e CONSULENTE.
     azienda = models.ForeignKey(
         Azienda, 
         on_delete=models.SET_NULL, 
@@ -103,7 +116,6 @@ class CustomUser(AbstractUser):
     
     telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("Telefono"))
     data_nascita = models.DateField(blank=True, null=True, verbose_name=_("Data di Nascita"))
-    
     is_dpo = models.BooleanField(default=False, verbose_name=_("Designato come DPO"))
 
     class Meta:
@@ -127,7 +139,6 @@ class Consulente(models.Model):
         limit_choices_to={'ruolo': 'CONSULENTE'},
         primary_key=True
     )
-    
     codice_albo = models.CharField(max_length=50, blank=True, null=True, verbose_name=_("Codice Albo Professionale"))
     
     class Meta:
@@ -138,24 +149,19 @@ class Consulente(models.Model):
         return f"Profilo Consulente: {self.user.get_full_name()}"
 
 # ==============================================================================
-# 5. MODELLI AGGIUNTIVI (Per completezza di importazione)
+# 5. MODELLI DI SUPPORTO
 # ==============================================================================
 
 class AdminReferente(models.Model):
-    # Modello di placeholder per la classe AdminReferente
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
-    
-    class Meta:
-        verbose_name = _("Admin Referente")
-        
-    def __str__(self):
-        return f"Admin Referente: {self.user.username}"
     class Meta:
         verbose_name = _("Referente ADMIN")
         verbose_name_plural = _("Referenti ADMIN")
         
+    def __str__(self):
+        return f"Admin Referente: {self.user.username}"
+        
 class NotaAzienda(models.Model):
-    # Modello di placeholder per la classe NotaAzienda
     azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE)
     testo = models.TextField()
     data_creazione = models.DateTimeField(auto_now_add=True)

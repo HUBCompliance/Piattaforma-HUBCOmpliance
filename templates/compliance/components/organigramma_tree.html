@@ -1,0 +1,36 @@
+{# templates/compliance/components/organigramma_tree.html #}
+
+<div class="d-flex justify-content-center flex-wrap gap-4 py-4">
+    {% for ruolo in ruoli %}
+        <div class="card shadow-sm border-0" style="width: 240px; border-radius: 12px; overflow: hidden; transition: transform 0.2s;">
+            <div class="card-header text-center py-2" style="background-color: #0d6efd; color: white;">
+                <small class="text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">
+                    {{ ruolo.get_ruolo_tipo_display }}
+                </small>
+            </div>
+            <div class="card-body text-center bg-white border border-top-0" style="border-radius: 0 0 12px 12px;">
+                <h6 class="card-title mb-1 text-dark fw-bold">{{ ruolo.nome_cognome }}</h6>
+                <p class="card-text small text-muted mb-2">
+                    <i class="bi bi-envelope-at me-1"></i>{{ ruolo.contatti|default:"Nessun contatto" }}
+                </p>
+                
+                {% if ruolo.atto_nomina %}
+                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                        <i class="bi bi-check-circle-fill me-1"></i>Nomina Presente
+                    </span>
+                {% else %}
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Nomina Mancante
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<style>
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+</style>

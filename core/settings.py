@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'user_auth',                # Definisce User e Azienda
     'courses.apps.CoursesConfig', # Dipende da user_auth
     'compliance',               # Dipende da user_auth e courses
+    'monitoring',
 ]
 # ==============================================================================
 
@@ -51,7 +52,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'], 
+        'DIRS': [os.path.join(BASE_DIR, 'templates')], 
         'APP_DIRS': True, 
         'OPTIONS': {
             'context_processors': [

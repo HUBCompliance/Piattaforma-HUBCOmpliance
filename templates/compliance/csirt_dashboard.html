@@ -4,460 +4,184 @@
 
 {% block title %}{% translate "Modulo Referente CSIRT (NIS2)" %}{% endblock %}
 
-{% block extra_head %}
-  {{ block.super }}
-  {# RIFERIMENTO A CHART.JS RIMOSSO DA QUI PER EVITARE CONFLITTI DI CARICAMENTO #}
-{% endblock %}
-
 {% block content %}
 <div class="row">
     <div class="col-12 mb-4">
-        <div class="d-flex align-items-center">
-            {% if referente_csirt.azienda.logo_principale %}
-                <img src="{{ referente_csirt.azienda.logo_principale.url }}" alt="Logo Azienda"
-                     class="me-3 border rounded p-1 bg-white shadow-sm"
-                     style="max-height: 60px; width: auto;">
-            {% endif %}
-            <div>
-                <h1 class="h3 mb-0">{% translate "Modulo Referente CSIRT (NIS2)" %}</h1>
-                <p class="text-muted mb-0">
-                    {% translate "Designazione e adempimenti per" %}: <strong>{{ referente_csirt.azienda.nome }}</strong>
-                </p>
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+                {% if referente_csirt.azienda.logo_principale %}
+                    <img src="{{ referente_csirt.azienda.logo_principale.url }}" alt="Logo" class="me-3 border rounded p-1 bg-white shadow-sm" style="max-height: 60px;">
+                {% endif %}
+                <div>
+                    <h1 class="h3 mb-0">{% translate "Modulo Referente CSIRT (NIS2)" %}</h1>
+                    <p class="text-muted mb-0">{% translate "Designazione e adempimenti per" %}: <strong>{{ referente_csirt.azienda.nome }}</strong></p>
+                </div>
             </div>
+            <a href="{% url 'download_csirt_nomina' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-file-earmark-pdf me-2"></i>{% translate "Scarica Nomina Ufficiale" %}
+            </a>
         </div>
     </div>
 </div>
 
 {% include "includes/messages.html" %}
 
-<div class="row g-4">
-
+<div class="row">
+    {# === COLONNA SINISTRA: DESIGNAZIONE (COLLAPSIBLE) === #}
     <div class="col-lg-7">
-
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{% translate "1. Designazione Referente" %}</h5>
-                <a href="{% url 'download_csirt_nomina' %}?azienda_id={{ referente_csirt.azienda.pk }}"
-                   class="btn btn-sm btn-light text-primary fw-bold">
-                    <i class="bi bi-download me-1"></i> {% translate "Scarica Nomina" %}
-                </a>
+        <div class="card shadow-sm mb-4 border-0">
+            <div class="card-header d-flex justify-content-between align-items-center" 
+                 style="background-color: #0d6efd !important; min-height: 55px; border-bottom: none;">
+                <h5 class="mb-0 flex-grow-1">
+                    <button class="btn btn-link text-white text-decoration-none shadow-none w-100 text-start p-0 fw-bold d-flex align-items-center" 
+                            type="button" data-bs-toggle="collapse" data-bs-target="#collapseDesignazione">
+                        <i class="bi bi-chevron-right me-2" id="chevron-designazione"></i> 
+                        {% translate "1. Designazione Referente e Sostituti" %}
+                    </button>
+                </h5>
             </div>
+            <div id="collapseDesignazione" class="collapse show"> {# Mostrato di default per facilitare l'inserimento #}
+                <div class="card-body">
+                    <form method="post" id="csirt-form">
+                        {% csrf_token %}
+                        
+                        {# SEZIONE A: REFERENTE #}
+                        <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">{% translate "A. Referente Designato" %}</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6"><label class="small fw-bold">{% translate "Nome" %}</label>{{ form.ref_nome }}</div>
+                            <div class="col-md-6"><label class="small fw-bold">{% translate "Cognome" %}</label>{{ form.ref_cognome }}</div>
+                            <div class="col-md-6"><label class="small fw-bold">{% translate "Codice Fiscale" %}</label>{{ form.ref_cf }}</div>
+                            <div class="col-md-6"><label class="small fw-bold">{% translate "Ruolo" %}</label>{{ form.ref_ruolo }}</div>
+                            <div class="col-md-6"><label class="small fw-bold">{% translate "Email" %}</label>{{ form.ref_email }}</div>
+                            <div class="col-md-6"><label class="small fw-bold">{% translate "Telefono" %}</label>{{ form.ref_telefono }}</div>
+                            <div class="col-md-12"><label class="small fw-bold">{% translate "Data Nomina" %}</label>{{ form.data_nomina }}</div>
+                        </div>
 
-            <div class="card-body">
-                <form method="post" id="csirt-form">
-                    {% csrf_token %}
+                        {# SEZIONE B: PUNTO DI CONTATTO ACN #}
+                        <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">{% translate "B. Punto di Contatto per ACN" %}</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4"><label class="small fw-bold">{% translate "Nome PdC" %}</label>{{ form.pc_nome }}</div>
+                            <div class="col-md-4"><label class="small fw-bold">{% translate "Cognome PdC" %}</label>{{ form.pc_cognome }}</div>
+                            <div class="col-md-4"><label class="small fw-bold">{% translate "Email PdC" %}</label>{{ form.pc_email }}</div>
+                        </div>
 
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger small d-flex align-items-center mb-3">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            {{ form.non_field_errors }}
-                        </div>
-                    {% endif %}
-
-                    <h6 class="mt-2 mb-3 text-primary">{% translate "A. Utente Loggato (Sola Lettura)" %}</h6>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold small text-secondary">{% translate "Nome Utente Loggato" %}</label>
-                            <input type="text" class="form-control" disabled value="{{ request.user.first_name|default:'N/A' }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold small text-secondary">{% translate "Cognome Utente Loggato" %}</label>
-                            <input type="text" class="form-control" disabled value="{{ request.user.last_name|default:'N/A' }}">
-                        </div>
-                    </div>
-
-                    <hr>
-                    <h6 class="mt-4 mb-3 text-primary">{% translate "B. Dati Referente Designato e Ruolo" %}</h6>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            {{ form.data_nomina.label_tag }}{{ form.data_nomina }}
-                            {% for error in form.data_nomina.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            {{ form.ref_ruolo.label_tag }}{{ form.ref_ruolo }}
-                            {% for error in form.ref_ruolo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                            {% if form.ref_ruolo.help_text %}<div class="form-text small">{{ form.ref_ruolo.help_text }}</div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            {{ form.ref_nome.label_tag }}{{ form.ref_nome }}
-                            {% for error in form.ref_nome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.ref_cognome.label_tag }}{{ form.ref_cognome }}
-                            {% for error in form.ref_cognome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.ref_cf.label_tag }}{{ form.ref_cf }}
-                            {% for error in form.ref_cf.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            {{ form.ref_email.label_tag }}{{ form.ref_email }}
-                            {% for error in form.ref_email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            {{ form.ref_telefono.label_tag }}{{ form.ref_telefono }}
-                            {% for error in form.ref_telefono.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                            {% if form.ref_telefono.help_text %}<div class="form-text small">{{ form.ref_telefono.help_text }}</div>{% endif %}
-                        </div>
-                    </div>
-
-                    <h6 class="mt-4 mb-3 text-primary">{% translate "C. Punto di Contatto ACN" %}</h6>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            {{ form.pc_nome.label_tag }}{{ form.pc_nome }}
-                            {% for error in form.pc_nome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.pc_cognome.label_tag }}{{ form.pc_cognome }}
-                            {% for error in form.pc_cognome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.pc_email.label_tag }}{{ form.pc_email }}
-                            {% for error in form.pc_email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-
-                    <h6 class="mt-4 mb-3 text-primary">{% translate "D. Sostituto 1 e 2 (Dettagli)" %}</h6>
-
-                    <div class="row border-bottom pb-3">
-                        <div class="col-md-4 mb-3">
-                            {{ form.sos1_nome.label_tag }}{{ form.sos1_nome }}
-                            {% for error in form.sos1_nome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.sos1_cognome.label_tag }}{{ form.sos1_cognome }}
-                            {% for error in form.sos1_cognome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.sos1_email.label_tag }}{{ form.sos1_email }}
-                            {% for error in form.sos1_email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-
-                    <div class="row pt-3">
-                        <div class="col-md-4 mb-3">
-                            {{ form.sos2_nome.label_tag }}{{ form.sos2_nome }}
-                            {% for error in form.sos2_nome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.sos2_cognome.label_tag }}{{ form.sos2_cognome }}
-                            {% for error in form.sos2_cognome.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            {{ form.sos2_email.label_tag }}{{ form.sos2_email }}
-                            {% for error in form.sos2_email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-
-                    <h6 class="mt-4 mb-3 text-primary">{% translate "E. Conformità (Motivazione Esterna)" %}</h6>
-                    <div class="row">
-                        <div class="col-12 mb-3">
-                            {{ form.motivo_esterno.label_tag }}
-                            {{ form.motivo_esterno }}
-                            {% for error in form.motivo_esterno.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                            {% if form.motivo_esterno.help_text %}<div class="form-text small">{{ form.motivo_esterno.help_text }}</div>{% endif %}
-                        </div>
-                        <div class="col-12 mb-3">
-                            {{ form.competenze_documentate.label_tag }}
-                            {{ form.competenze_documentate }}
-                            {% for error in form.competenze_documentate.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-
-                    <div class="text-end mt-4">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save me-1"></i> {% translate "Salva Dati" %}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        {% if template_form %}
-        <div class="card shadow-sm mb-4 border-secondary">
-            <div class="card-header bg-secondary text-white">
-                <h6 class="mb-0"><i class="bi bi-file-earmark-word"></i> {% translate "Configurazione Template Nomina" %}</h6>
-            </div>
-            <div class="card-body bg-light">
-                <div class="row align-items-center g-3">
-                    <div class="col-md-7">
-                        <p class="small mb-2">
-                            {% translate "Carica qui il file Word (.docx) con i segnaposti per la generazione automatica." %}
-                            {% if config_sito.template_nomina_csirt %}
-                                <br><span class="text-success fw-bold"><i class="bi bi-check-circle"></i> {% translate "Template caricato e pronto." %}</span>
-                            {% else %}
-                                <br><span class="text-danger fw-bold"><i class="bi bi-x-circle"></i> {% translate "Nessun template presente." %}</span>
-                            {% endif %}
-                        </p>
-                    </div>
-                    <div class="col-md-5">
-                        <form action="{% url 'csirt_upload_template' %}" method="post" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            <div class="input-group input-group-sm">
-                                {{ template_form.template_nomina_csirt }}
-                                <button class="btn btn-outline-secondary" type="submit">{% translate "Carica" %}</button>
+                        {# SEZIONE C: SOSTITUTI #}
+                        <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">{% translate "C. Sostituti Designati" %}</h6>
+                        <div class="bg-light p-3 rounded mb-4">
+                            <div class="row g-2">
+                                <div class="col-md-4"><label class="smaller">{% translate "Nome Sos 1" %}</label>{{ form.sos1_nome }}</div>
+                                <div class="col-md-4"><label class="smaller">{% translate "Cognome Sos 1" %}</label>{{ form.sos1_cognome }}</div>
+                                <div class="col-md-4"><label class="smaller">{% translate "Email Sos 1" %}</label>{{ form.sos1_email }}</div>
                             </div>
-                        </form>
-                    </div>
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-4"><label class="smaller">{% translate "Nome Sos 2" %}</label>{{ form.sos2_nome }}</div>
+                                <div class="col-md-4"><label class="smaller">{% translate "Cognome Sos 2" %}</label>{{ form.sos2_cognome }}</div>
+                                <div class="col-md-4"><label class="smaller">{% translate "Email Sos 2" %}</label>{{ form.sos2_email }}</div>
+                            </div>
+                        </div>
+
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-success px-4 shadow-sm">
+                                <i class="bi bi-save me-1"></i> {% translate "Salva Designazione" %}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
-        {% endif %}
-
     </div>
 
-    <div class="col-lg-5 d-flex flex-column gap-4">
-
-        <div class="card shadow-sm border-info">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i> {% translate "Stato Incidenti" %}</h5>
-                <span class="small opacity-75">{% translate "Distribuzione per stato" %}</span>
-            </div>
-
-            <div class="card-body">
-                <div class="position-relative" style="height: 260px;">
-                    <canvas id="csirtDoughnut"></canvas>
-                </div>
-
-                <div class="mt-2 small text-muted text-center">
-                    {% translate "Aggiornato in base alle notifiche registrate." %}
-                </div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm border-info">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0"><i class="bi bi-robot me-2"></i> {% translate "Assistente NIS2/CSIRT (Gemini)" %}</h5>
-            </div>
-            <div class="card-body">
-                <p class="small text-muted">{% translate "Chiedi linee guida, interpretazioni normative o assistenza nella classificazione degli incidenti." %}</p>
-
-                <div class="mb-3">
-                    <label for="ai-query-input" class="form-label small fw-bold">{% translate "La tua Domanda" %}</label>
-                    <textarea class="form-control" id="ai-query-input" rows="3" placeholder="Es: Come si classifica un attacco DoS secondo NIS2?"></textarea>
-                </div>
-
-                <button type="button" class="btn btn-sm btn-outline-info w-100" id="submit-ai-query">
-                    <i class="bi bi-magic me-1"></i> {% translate "Ottieni Risposta IA" %}
-                </button>
-
-                <div class="mt-3 p-3 border rounded" id="ai-response-box" style="background-color: #f7f7f7;">
-                    <p class="mb-0 small text-muted" id="ai-response-text">
-                        {% translate "La risposta apparirà qui." %}
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm border-danger">
-            <div class="card-header bg-danger text-white">
-                <h5 class="mb-0">{% translate "2. Registro Notifiche" %}</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid mb-3">
-                    <a href="{% url 'csirt_notifica_create' %}?azienda_id={{ referente_csirt.azienda.pk }}" class="btn btn-outline-danger">
-                        <i class="bi bi-bell-fill me-1"></i> {% translate "Registra Nuova Notifica" %}
-                    </a>
-                </div>
-
-                {% if notifiche %}
-                    <ul class="list-group list-group-flush">
-                        {% for notifica in notifiche %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1 fw-bold">{{ notifica.titolo_incidente }}</h6>
-                                    <small class="text-muted">{{ notifica.data_incidente|date:"d M Y H:i" }}</small><br>
-                                    <span class="badge bg-secondary">
-                                        {% if notifica.get_stato_display %}{{ notifica.get_stato_display }}{% else %}{{ notifica.stato }}{% endif %}
-                                    </span>
-                                </div>
-                                <div class="text-end">
-                                    <a href="{% url 'csirt_notifica_dettaglio' pk=notifica.pk %}" class="btn btn-sm btn-outline-info">
-                                        {% translate "Dettaglio" %}
-                                    </a>
-                                </div>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-muted small text-center py-3">{% translate "Nessuna notifica registrata." %}</p>
-                {% endif %}
-            </div>
-        </div>
-
-     
-        <div class="card shadow-sm border-info">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">{% translate "Tempistiche Notifiche (NIS2 Art. 25)" %}</h5>
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th class="small text-secondary">{% translate "Termine" %}</th>
-                            <th class="small text-secondary">{% translate "Azione Richiesta" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="text-danger fw-bold small">{% translate "Entro 24 ore" %}</td>
-                            <td class="small">{% translate "Prima notifica (early warning) allo CSIRT nazionale dopo che l'incidente ha raggiunto un livello significativo di impatto." %}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-warning fw-bold small">{% translate "Entro 72 ore" %}</td>
-                            <td class="small">{% translate "Aggiornamento della notifica iniziale e valutazione preliminare dell'incidente, inclusi dettagli sul tipo di incidente e l'impatto stimato." %}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-success fw-bold small">{% translate "Entro 1 mese" %}</td>
-                            <td class="small">{% translate "Notifica finale (report conclusivo) allo CSIRT, contenente l'analisi dettagliata, la causa radice, le azioni correttive e le misure di prevenzione adottate." %}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted">{% translate "In corso" %}</td>
-                            <td class="small">{% translate "Notifiche intermedie, se lo stato dell'incidente cambia in modo significativo." %}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="card shadow-sm border-info">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0"><i class="bi bi-diagram-3-fill me-2"></i> {% translate "Configurazione Rete Informatica" %}</h5>
-            </div>
-            <div class="card-body text-center">
-                <p class="small text-muted mb-3">
-                    {% translate "Gestisci i dettagli topologici e di sicurezza della rete aziendale richiesti dalla normativa NIS2." %}
-                </p>
-
-                <a href="{% url 'configurazione_rete_view' %}?azienda_id={{ referente_csirt.azienda.pk }}" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-pencil-square me-1"></i> {% translate "Vai a Configurazione Rete" %}
+    {# --- COLONNA DESTRA: STRUMENTI E NOTIFICHE --- #}
+    <div class="col-lg-5">
+        
+       {# CARD STRUMENTI OPERATIVA #}
+{% if request.user.ruolo == 'CONSULENTE' %}
+<div class="card shadow-sm mb-4 border-start border-info border-4">
+    <div class="card-header bg-light py-2">
+        <h6 class="mb-0 fw-bold text-info text-uppercase small">
+            <i class="bi bi-tools me-2"></i>{% translate "Strumenti di Compromissione" %}
+        </h6>
+    </div>
+    
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-12 p-2 border rounded bg-white shadow-sm mb-2">
+                <small class="text-muted d-block mb-2 fw-bold">Verifica Deashed</small>
+                <a href="{% url 'avvia_scansione_deashed' azienda.id %}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-play-fill"></i> Scansione
                 </a>
             </div>
-        </div>
 
+            <div class="col-12 p-2 border rounded bg-white shadow-sm mb-2">
+                <p class="small fw-bold text-secondary mb-2 border-bottom pb-1">{% translate "Pentest-Tools" %} 🛡️</p>
+                <a href="https://app.pentest-tools.com/dashboard" target="_blank" class="btn btn-xs btn-outline-danger w-100 py-1">
+                    <i class="bi bi-shield-shaded me-1"></i> {% translate "Dashboard Analisi" %}
+                </a>
+            </div>
+
+            <div class="col-12 p-2 border rounded bg-white shadow-sm">
+                <p class="small fw-bold text-secondary mb-2 border-bottom pb-1">{% translate "ViewDNS" %} 🌐</p>
+                <a href="{% url 'analisi_dns_view' azienda.id %}" class="btn btn-xs btn-outline-info w-100 py-1">
+                    <i class="bi bi-globe me-1"></i> {% translate "Analisi DNS" %}
+                </a>
+            </div>
+        </div> </div> </div>
+{% endif %}
+
+        {# REGISTRO NOTIFICHE (COLLAPSIBLE) #}
+        <div class="card shadow-sm border-danger mb-4">
+            <div class="card-header bg-danger text-white py-2">
+                <h5 class="mb-0 small">
+                    <button class="btn btn-link text-white text-decoration-none shadow-none w-100 text-start p-0 fw-bold d-flex align-items-center" 
+                            type="button" data-bs-toggle="collapse" data-bs-target="#collapseRegistro">
+                        <i class="bi bi-chevron-right me-2" id="chevron-registro"></i> 
+                        {% translate "2. Registro Notifiche Incidente" %}
+                    </button>
+                </h5>
+            </div>
+            <div id="collapseRegistro" class="collapse">
+                <div class="card-body p-0">
+                    <div class="p-3 border-bottom text-center">
+                        <a href="{% url 'csirt_notifica_create' %}" class="btn btn-danger btn-sm w-100 fw-bold">
+                            <i class="bi bi-bell-fill me-2"></i>{% translate "Registra Notifica" %}
+                        </a>
+                    </div>
+                    <div class="list-group list-group-flush small" style="max-height: 250px; overflow-y: auto;">
+                        {% for notifica in notifiche %}
+                            <a href="{% url 'csirt_notifica_dettaglio' pk=notifica.pk %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                <span>{{ notifica.titolo_incidente|truncatechars:30 }}</span>
+                                <span class="badge bg-secondary">{{ notifica.get_stato_display }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-{# CARICAMENTO DELLE LIBRERIE E DELLO SCRIPT ALLA FINE DEL BODY PER GARANTIRE L'ACCESSO AL DOM #}
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-$(document).ready(function() {
-
-    // Bootstrap class su campi form
-    $('#csirt-form input:not([type="checkbox"]):not([type="hidden"]), #csirt-form select, #csirt-form textarea')
-        .each(function() {
-            if (!$(this).hasClass('form-control')) $(this).addClass('form-control');
+    document.addEventListener('DOMContentLoaded', function() {
+        // Applica classi Bootstrap
+        document.querySelectorAll('#csirt-form input, #csirt-form select').forEach(el => {
+            el.classList.add('form-control', 'form-control-sm');
         });
 
-    // Doughnut Chart (Chart.js)
-    const el = document.getElementById("csirtDoughnut");
-    if (el) {
-        if (typeof Chart === "undefined") {
-            const container = el.parentElement;
-            if (container) {
-                // Questo messaggio apparirà se Chart.js non viene caricato
-                container.innerHTML = '<div class="alert alert-warning small mb-0">Chart.js non caricato (verifica il blocco script).</div>';
+        // Gestione icone chevron
+        const setupChevron = (collapseId, chevronId) => {
+            const el = document.getElementById(collapseId);
+            if(el) {
+                el.addEventListener('show.bs.collapse', () => {
+                    document.getElementById(chevronId).classList.replace('bi-chevron-right', 'bi-chevron-down');
+                });
+                el.addEventListener('hide.bs.collapse', () => {
+                    document.getElementById(chevronId).classList.replace('bi-chevron-down', 'bi-chevron-right');
+                });
             }
-        } else {
-            // Dati dal contesto Django (passati dalla vista Python)
-            const raw = "{{ dati_grafico_stati_json|default:'{}'|escapejs }}";
-            let dataObj = {};
-            try { dataObj = JSON.parse(raw); } catch (e) { dataObj = {}; }
-
-            const labels = Object.keys(dataObj);
-            const values = Object.values(dataObj).map(v => Number(v) || 0);
-            const hasData = values.reduce((a, b) => a + b, 0) > 0;
-
-            // Mappatura colori usando le CHIAVI DEL DB NON TRADOTTE (perché il JSON le usa come chiavi)
-            const colorMap = {
-                "Aperta": 'rgb(255, 193, 7)', // Warning
-                "In Risposta/Gestione": 'rgb(13, 110, 253)', // Primary
-                "Notificata ACN": 'rgb(40, 167, 69)', // Success
-                "Chiusa": 'rgb(108, 117, 125)', // Secondary
-            };
-            
-            const backgroundColors = labels.map(label => colorMap[label] || 'rgb(220, 53, 69)');
-
-            new Chart(el, {
-                type: "doughnut",
-                data: {
-                    labels: hasData ? labels : ["{% translate 'Nessun dato' %}"],
-                    datasets: [{ 
-                        data: hasData ? values : [1],
-                        backgroundColor: hasData ? backgroundColors : ['rgb(220, 220, 220)'],
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: "65%",
-                    plugins: {
-                        legend: { position: "bottom" },
-                        tooltip: { enabled: hasData }
-                    }
-                }
-            });
-        }
-    }
-    
-    // Assistente AI (AJAX) - usa jQuery
-    $('#submit-ai-query').on('click', function() {
-        const $button = $(this);
-        const query = $('#ai-query-input').val();
-        const $responseBox = $('#ai-response-text');
-
-        const url = "{% url 'csirt_ai_query' %}";
-        const csrftoken = $('[name=csrfmiddlewaretoken]').val();
-
-        if (!query || query.trim() === '') {
-            $responseBox.html('<span class="text-danger">{% translate "Inserisci una domanda valida." %}</span>');
-            return;
-        }
-
-        $button.attr('disabled', true)
-               .html('<span class="spinner-border spinner-border-sm me-2" role="status"></span>{% translate "Elaborazione..." %}');
-
-        $responseBox.html('{% translate "Attendi, l\\'IA sta elaborando la richiesta..." %}');
-
-        $.ajax({
-            url: url,
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ 'prompt': query }),
-            headers: {'X-CSRFToken': csrftoken},
-            success: function(response) {
-                $button.attr('disabled', false)
-                       .html('<i class="bi bi-magic me-1"></i> {% translate "Ottieni Risposta IA" %}');
-                if (response.success) {
-                    const formattedText = response.response.replace(/\n/g, '<br>');
-                    $responseBox.html('<span class="text-dark">' + formattedText + '</span>');
-                } else {
-                    $responseBox.html('<span class="text-danger">{% translate "Errore IA" %}: </span>' + response.error);
-                }
-            },
-            error: function(xhr) {
-                $button.attr('disabled', false)
-                       .html('<i class="bi bi-magic me-1"></i> {% translate "Ottieni Risposta IA" %}');
-                const error = xhr.responseJSON ? xhr.responseJSON.error : '{% translate "Errore sconosciuto di connessione." %}';
-                $responseBox.html('<span class="text-danger">{% translate "Errore" %}: </span>' + error);
-            },
-            complete: function() {
-                $button.attr('disabled', false)
-                       .html('<i class="bi bi-magic me-1"></i> {% translate "Ottieni Risposta IA" %}');
-            }
-        });
+        };
+        setupChevron('collapseDesignazione', 'chevron-designazione');
+        setupChevron('collapseRegistro', 'chevron-registro');
     });
-
-});
 </script>
 {% endblock content %}

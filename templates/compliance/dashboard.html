@@ -1,29 +1,29 @@
-{% extends "base_studente.html" %}
+{% extends 'base_studente.html' %}
 {% load i18n static %}
 
 {% block title %}{% translate "Cruscotto Aziendale" %} - {{ azienda.nome }}{% endblock %}
 
 {% block content %}
 
-{# ========================================================================================================= #}
-{# === HEADER DASHBOARD: Logo Azienda (Sinistra) vs Logo Piattaforma (Destra) === #}
-{# ========================================================================================================= #}
-<div class="row mb-4 border-bottom pb-3">
-    
-    {# COLONNA SINISTRA (Logo Azienda e Titolo) #}
-    <div class="col-md-8 d-flex align-items-center">
+{# === HEADER DASHBOARD (Loghi e Titolo) === #}
+<div class="row mb-4 border-bottom pb-3 align-items-center">
+    <div class="col-md-6 d-flex align-items-center">
         {% if azienda.logo_principale %}
             <img src="{{ azienda.logo_principale.url }}" alt="Logo Azienda {{ azienda.nome }}" class="me-3" style="max-height: 70px; width: auto; border: 1px solid #ddd;">
         {% endif %}
-        
         <div>
             <h1 class="h3 mb-0">{% translate "Cruscotto Aziendale" %} - {{ azienda.nome }}</h1>
             <p class="text-muted small mb-0">{% translate "Stato di conformità generale." %}</p>
         </div>
     </div>
     
-    {# COLONNA DESTRA (Logo Piattaforma) #}
-    <div class="col-md-4 text-end d-flex justify-content-end align-items-center">
+    <div class="col-md-6 text-end d-flex justify-content-end align-items-center gap-3">
+        {% if is_consulente %}
+            <a href="{% url 'import_controls_excel' %}" class="btn btn-success shadow-sm d-flex align-items-center">
+                <i class="bi bi-file-earmark-excel me-2"></i> {% translate "Carica Nuovo Framework" %}
+            </a>
+        {% endif %}
+
         {% if config.logo_principale %}
             <img src="{{ config.logo_principale.url }}" alt="Logo Piattaforma" style="max-height: 50px;">
         {% else %}
@@ -31,8 +31,6 @@
         {% endif %}
     </div>
 </div>
-{# ========================================================================================================= #}
-
 
 {# SEZIONE 1: COMPITI APERTI #}
 <div class="row mb-5">
@@ -61,9 +59,6 @@
                         </li>
                         {% endfor %}
                     </ul>
-                    {% if compiti_list|length > 5 %}
-                        <div class="text-end mt-3"><a href="#" class="btn btn-sm btn-outline-info">Vedi tutti i compiti</a></div>
-                    {% endif %}
                 {% else %}
                     <p class="mb-0 text-success"><i class="bi bi-check-circle me-1"></i> {% translate "Nessun compito aperto. Conformità OK!" %}</p>
                 {% endif %}
@@ -74,47 +69,65 @@
 
 <hr>
 
-{# --------------------------------------------------------------------------------------------------------- #}
-{# SEZIONE 2: CRUSCOTTO GENERALE E SEMAFORO (Controllato da 'mod_cruscotto') #}
-{# --------------------------------------------------------------------------------------------------------- #}
-
+{# SEZIONE 2: CRUSCOTTO GENERALE E SEMAFORO #}
 {% if is_cruscotto_active %}
     <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="h3">{% translate "Riepilogo Stato Conformità" %}</h2>
+        <div class="col-12 text-center mb-4">
+            <h2 class="h3 fw-bold">{% translate "Riepilogo Stato Conformità" %}</h2>
         </div>
 
         <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-primary text-white h5">
-                    <i class="bi bi-shield-fill-check me-2"></i> {% translate "Valutazione Ultimo Audit" %}
+            <div class="card shadow-sm h-100 border-primary border-top border-4">
+                <div class="card-header bg-white h5">
+                    <i class="bi bi-shield-fill-check text-primary me-2"></i> {% translate "Audit e Security Rating" %}
                 </div>
                 <div class="card-body text-center">
-                    
                     {% if ultima_sessione %}
-                        {# Se esiste un Audit, mostra i risultati #}
-                        <h1 class="display-4 text-primary">{{ percentuale_conformita }}%</h1>
-                        <p class="lead">{% translate "Conformità Generale" %}</p>
-                        <div class="progress mb-3" style="height: 25px;">
-                            <div class="progress-bar" role="progressbar" style="width: {{ percentuale_conformita }}%;" aria-valuenow="{{ percentuale_conformita }}" aria-valuemin="0" aria-valuemax="100">{{ percentuale_conformita }}%</div>
-                        </div>
-                        <small class="text-muted">{% translate "Ultimo Audit Completato il" %} {{ ultima_sessione.data_creazione|date:"d M Y" }}</small>
+                        <h1 class="display-2 text-{{ ultima_sessione.colore_rating }} fw-bold" style="font-size: 4rem;">
+                            {{ ultima_sessione.percentuale_completamento }}%
+                        </h1>
+                        <p class="lead mb-1">{% translate "Conformità Ultimo Audit Generale" %}</p>
                         
-                        <div class="mt-4">
-                            {% for dato in semaforo_data|slice:":3" %}
-                                <p class="mb-1">
-                                    <span class="badge {{ dato.color_class }} me-2"></span>
-                                    {{ dato.categoria.nome }}: <strong>{{ dato.percentuale }}%</strong>
-                                </p>
-                            {% endfor %}
+                        <div class="mb-3">
+                            <a href="{% url 'audit_checklist' ultima_sessione.pk %}" class="text-decoration-none small fw-bold">
+                                <i class="bi bi-pencil-square me-1"></i> {% translate "Riprendi/Modifica Audit Generale" %}
+                            </a>
                         </div>
-                        <a href="{% url 'audit_checklist' ultima_sessione.pk %}" class="btn btn-outline-primary btn-sm mt-3">Vedi Dettagli Audit</a>
+                        <div class="mb-3">
+                            <a href="{% url 'audit_create' %}?reset=1" class="text-decoration-none small fw-bold text-success">
+                                <i class="bi bi-plus-circle-dotted me-1"></i> {% translate "Inizia Nuovo Audit (da zero)" %}
+                            </a>
+                        </div>
+                        <div class="progress mb-4" style="height: 15px;">
+                            <div class="progress-bar bg-{{ ultima_sessione.colore_rating }}" role="progressbar" 
+                                 style="width: {{ ultima_sessione.percentuale_completamento }}%;"></div>
+                        </div>
                         
+                        {# BOX SECURITY RATING BASE #}
+                        <div class="p-4 bg-light rounded border border-2">
+                            <h6 class="text-muted fw-bold small text-uppercase mb-3" style="letter-spacing: 1px;">{% translate "Security Rating Base" %}</h6>
+                            {% if storico_security %}
+                                {% with ultima_security=storico_security.0 %}
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <h1 class="mb-0 me-3 fw-bold text-{{ ultima_security.colore_rating }}" style="font-size: 3.5rem;">
+                                            {{ ultima_security.punteggio_totale }}%
+                                        </h1>
+                                        <a href="{% url 'security_checklist_view' ultima_security.id %}" class="btn btn-outline-dark shadow-sm d-flex align-items-center">
+                                            <i class="bi bi-shield-lock me-2"></i> {% translate "Dettaglio" %}
+                                        </a>
+                                    </div>
+                                {% endwith %}
+                            {% else %}
+                                <p class="small text-muted mb-3">{% translate "Nessun rating calcolato." %}</p>
+                                <a href="{% url 'security_checklist_init' %}" class="btn btn-info btn-sm text-white">
+                                    <i class="bi bi-shield-plus me-1"></i> {% translate "Avvia Security Audit" %}
+                                </a>
+                            {% endif %}
+                        </div>
                     {% else %}
-                        {# WIDGET AUDIT STATO INIZIALE #}
                         <div class="py-5">
                             <i class="bi bi-clipboard-check text-muted" style="font-size: 3rem;"></i>
-                            <p class="mt-3">{% translate "Nessun audit effettuato" %}</p>
+                            <p class="mt-3">{% translate "Inizia il primo audit per vedere le statistiche" %}</p>
                             <a href="{% url 'audit_create' %}" class="btn btn-primary">{% translate "Inizia Audit Ora" %}</a>
                         </div>
                     {% endif %}
@@ -124,77 +137,113 @@
 
         <div class="col-md-6 mb-4">
             <div class="card shadow-sm h-100">
-                <div class="card-header bg-info text-white h5">
-                    <i class="bi bi-bar-chart-line me-2"></i> {% translate "Riepilogo Dati" %}
+                <div class="card-header bg-info text-black h5">
+                    <i class="bi bi-bar-chart-line me-2"></i> {% translate "Indicatori Chiave" %}
                 </div>
                 <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between">
-                            <span>{% translate "Trattamenti Registrati" %}</span>
-                            <span class="badge bg-primary rounded-pill">{{ trattamenti_count }}</span>
+                    <ul class="list-group list-group-flush mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                            <span><i class="bi bi-journal-text me-2 text-primary"></i>{% translate "Trattamenti GDPR" %}</span>
+                            <span class="badge bg-primary rounded-pill text-black">{{ trattamenti_count }}</span>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
-                            <span>{% translate "Sessioni Audit Totali" %}</span>
-                            <span class="badge bg-primary rounded-pill">{{ sessioni_totali }}</span>
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                            <span><i class="bi bi-clock-history me-2 text-primary"></i>{% translate "Audit Svolti" %}</span>
+                            <span class="badge bg-primary rounded-pill text-black">{{ sessioni_totali }}</span>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
-                            <span>{% translate "Referente CSIRT Assegnato" %}</span>
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                            <span><i class="bi bi-shield-shaded me-2 text-primary"></i>{% translate "Referente CSIRT" %}</span>
                             {% if azienda.referente_csirt %}
-                                <span class="badge bg-success">{% translate "Sì" %}</span>
+                                <span class="badge bg-success text-white">{% translate "Assegnato" %}</span>
                             {% else %}
-                                <span class="badge bg-danger">{% translate "No" %}</span>
+                                <span class="badge bg-danger text-white">{% translate "Da Nominare" %}</span>
                             {% endif %}
                         </li>
                     </ul>
                     
-                    {# SEZIONE STORICO SESSIONI (Controllato da 'mod_storico_audit') #}
+                    {# STORICO AUDIT GENERALE #}
                     {% if is_storico_audit_active and storico_sessioni %}
-                        <h6 class="mt-4">{% translate "Storico Sessioni Precedenti" %}</h6>
-                        <ul class="list-unstyled small">
+                        <h6 class="mt-4 fw-bold border-bottom pb-2">{% translate "Ultime Sessioni Audit" %}</h6>
+                        <ul class="list-unstyled small mb-4">    
                             {% for sessione in storico_sessioni|slice:":3" %}
-                                <li>- Audit del {{ sessione.data_creazione|date:"d M Y" }}</li>
+                                <li class="mb-2 d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="bi bi-calendar3 me-2 text-muted"></i>
+                                        <a href="{% url 'audit_checklist' sessione.pk %}" class="text-decoration-none text-dark hover-blue">
+                                            {{ sessione.data_creazione|date:"d M Y" }}
+                                        </a>
+                                    </span>
+                                    <div class="d-flex align-items-center">
+                                        <span class="fw-bold text-{{ sessione.colore_rating }} me-2">
+                                            {{ sessione.percentuale_completamento }}%
+                                        </span>
+                                        <a href="{% url 'audit_checklist' sessione.pk %}" class="btn btn-sm p-0 text-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </div>
+                                </li>
                             {% endfor %}
-                            <li class="text-end"><a href="#">{% translate "Vedi tutte" %}</a></li>
                         </ul>
                     {% endif %}
+
+                    {# STORICO SECURITY ASSESSMENT (Corretto con data_creazione) #}
+                    <h6 class="mt-4 fw-bold border-bottom pb-2">{% translate "Storico Security Assessment" %}</h6>
+                    <ul class="list-unstyled small">
+                        {% for audit in storico_security|slice:":3" %}
+                            <li class="mb-2 d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="bi bi-shield-check me-2 text-success"></i>
+                                    <span class="text-dark">{{ audit.data_creazione|date:"d M Y" }}</span>
+                                </span>
+                                <div class="d-flex align-items-center">
+                                    <span class="fw-bold text-{{ audit.colore_rating }} me-2">
+                                        {{ audit.punteggio_totale }}%
+                                    </span>
+                                    <a href="{% url 'security_checklist_view' audit.id %}" class="btn btn-sm p-0 text-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </li>
+                        {% empty %}
+                            <li class="text-muted small">{% translate "Nessun assessment storicizzato." %}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
 {% else %}
-    <div class="alert alert-warning mt-4">
-        {% translate "Il Cruscotto Principale e le Statistiche non sono attivi per questa azienda." %}
+    <div class="alert alert-warning mt-4 shadow-sm border-0">
+        <i class="bi bi-exclamation-triangle me-2"></i> {% translate "Il Cruscotto Principale non è attivo." %}
     </div>
 {% endif %}
 
-<hr>
+<hr class="my-5">
 
-{# --------------------------------------------------------------------------------------------------------- #}
-{# SEZIONE 3: MODULI OPERATIVI #}
-{# --------------------------------------------------------------------------------------------------------- #}
+{# SEZIONE 3: MODULI OPERATIVI (Ripristinati con la tua grafica originale) #}
 <div class="row mb-5">
-    <div class="col-12">
-        <h2 class="h3">{% translate "Accesso ai Moduli Operativi" %}</h2>
+    <div class="col-12 mb-4">
+        <h2 class="h3 fw-bold">{% translate "Accesso ai Moduli Operativi" %}</h2>
     </div>
     
     {% if moduli %}
         {% for modulo in moduli %}
-            <div class="col-md-4 col-lg-3 mb-3">
-                <a href="{% url modulo.url %}{% if is_consulente %}?azienda_id={{ azienda.id }}{% endif %}" class="card-link text-decoration-none">
-                    <div class="card h-100 shadow-sm text-center p-3 border-primary border-3">
-                        <i class="bi {{ modulo.icon }} display-6 mb-2 text-primary"></i>
-                        <h5 class="card-title mb-0">{{ modulo.name }}</h5>
+            <div class="col-md-4 col-lg-3 mb-4">
+                <a href="{% url modulo.url %}?azienda_id={{ azienda.id }}" class="card-link text-decoration-none">
+                    <div class="card h-100 shadow-sm text-center p-3 border-primary border-2 hover-shadow transition">
+                        <i class="bi {{ modulo.icon }} display-5 mb-2 text-primary"></i>
+                        <h5 class="card-title mb-0 fw-bold" style="font-size: 1rem; color: #333;">{{ modulo.name }}</h5>
                     </div>
                 </a>
             </div>
         {% endfor %}
-    {% else %}
-        <div class="col-12">
-            <div class="alert alert-info">{% translate "Nessun modulo operativo è stato attivato dal tuo consulente." %}</div>
-        </div>
     {% endif %}
 </div>
 
+<style>
+    .transition { transition: all 0.3s ease; }
+    .hover-shadow:hover { transform: translateY(-8px); border-color: #0d6efd !important; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+    .text-black { color: #000 !important; }
+    .hover-blue:hover { color: #0d6efd !important; text-decoration: underline !important; }
+</style>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}

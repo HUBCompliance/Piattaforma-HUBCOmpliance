@@ -12,4 +12,6 @@ urlpatterns = [
     # --- Generazione PDF Attestato ---
     # Questa è l'unica vista "di servizio" che potrebbe stare qui
     path('attestato/<int:attestato_id>/pdf/', views.genera_attestato_pdf, name='genera_attestato_pdf'),
+    path('consulente/avvia-scansione/<int:azienda_id>/', views.avvia_scansione_deashed, name='avvia_scansione_deashed'),
+    path('analisi-dns/<int:azienda_id>/', views.analisi_dns_view, name='analisi_dns_view'),
 ]

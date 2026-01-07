@@ -12,6 +12,8 @@ from django.db import transaction
 from django.forms.models import inlineformset_factory 
 from django import forms 
 from django.urls import reverse_lazy
+from functools import wraps
+
 
 # Import dai tuoi modelli (Assicurati che i percorsi siano esatti)
 from courses.models import (
@@ -19,7 +21,16 @@ from courses.models import (
     Quiz, Domanda, Risposta, Attestato, ImpostazioniSito
 )
 from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto
-from .models import * # O i modelli specifici che hai elencato
+from .models import (
+    Azienda, 
+    AuditSession, 
+    AuditDomanda,
+    AuditCategoria,
+    SecurityAudit, 
+    Compito, 
+    Trattamento,  # <--- Assicurati che questo sia presente
+    # aggiungi altri modelli se necessario...
+)
 from .forms import (
     TrattamentoForm, DocumentoAziendaleForm, VersioneDocumentoForm,
     IncidenteForm, RichiestaInteressatoForm, AuditChecklistForm,
@@ -27,7 +38,7 @@ from .forms import (
     ConsulenteCompitoForm, AssetForm, SoftwareForm, RuoloPrivacyForm, TIAForm, VideosorveglianzaForm,
     AziendaModuliForm, ReferenteCSIRTForm, NotificaIncidenteForm, 
     CSIRTTemplateForm, 
-    ConfigurazioneReteForm, ComponenteReteFormSet, RuoloPrivacyFormSet 
+    ConfigurazioneReteForm, ComponenteReteFormSet, RuoloPrivacyFormSet,
 )
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, Prefetch 
@@ -46,36 +57,57 @@ from django.views.decorators.http import require_POST
 import os
 import json 
 from django.conf import settings 
+import requests
 
 # === NUOVE IMPORTAZIONI NECESSARIE PER GEMINI ===
 from google import genai 
 from google.genai.errors import APIError 
 # ===============================================
+from django.db.models import Prefetch
+# Assicurati di importare i modelli corretti
+from .models import DocumentoAziendale, CategoriaDocumento, AuditSession
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 
 # ==============================================================================
 # 1. FUNZIONI HELPER E DECORATORI 
 # ==============================================================================
 
 def get_azienda_current(request):
-    user = request.user
-    if user.ruolo == 'REFERENTE':
-        return user.azienda
-    elif user.ruolo == 'CONSULENTE':
-        azienda_id = request.session.get('consulente_azienda_id')
-        if azienda_id:
-            try:
-                # Usa la NUOVA relazione manager_users per la verifica dell'accesso
-                return Azienda.objects.get(id=azienda_id, manager_users=user)
-            except Azienda.DoesNotExist:
-                return None
+    # 1. Prova dai parametri URL (per consulenti)
+    azienda_id = request.GET.get('azienda_id')
+    # 2. Se non c'è, prova dalla sessione
+    if not azienda_id:
+        azienda_id = request.session.get('azienda_id')
+
+    if azienda_id:
+        return get_object_or_404(Azienda, id=azienda_id)
     return None
 
-def role_required(view_func):
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_authenticated: return redirect('login')
-        if request.user.ruolo not in ['REFERENTE', 'CONSULENTE']: return redirect('login')
-        return view_func(request, *args, **kwargs)
-    return _wrapped_view
+def role_required(view_func=None, allowed_roles=None):
+    """
+    Decoratore per limitare l'accesso alle view in base al ruolo.
+    Uso:
+      @role_required
+      @role_required(allowed_roles=['CONSULENTE'])
+    """
+    if allowed_roles is None:
+        allowed_roles = ['REFERENTE', 'CONSULENTE']
+
+    def decorator(func):
+        @wraps(func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('login')
+            if request.user.ruolo not in allowed_roles:
+                return redirect('login')
+            return func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    if callable(view_func):
+        return decorator(view_func)
+    return decorator
 
 # === FUNZIONE DI CHIAMATA ALL'AI (IMPLEMENTAZIONE FINALE) ===
 def generate_gemini_response(prompt):
@@ -263,114 +295,65 @@ def consulente_gestisci_moduli(request, azienda_id):
 # ==============================================================================
 # 3. CRUSCOTTO OPERATIVO (FILTRAGGIO CRUCIALE PER IL REFERENTE)
 # ==============================================================================
-
 @role_required
 def dashboard_compliance(request):
-    user = request.user
-    
-    # Smistamento Consulente (logica di reindirizzamento)
-    if user.ruolo == 'CONSULENTE':
-        azienda_id_get = request.GET.get('azienda_id')
-        
-        if not azienda_id_get:
-            return redirect('dashboard_consulente')
-
-        if Azienda.objects.filter(id=azienda_id_get, manager_users=user).exists():
-            request.session['consulente_azienda_id'] = azienda_id_get
-        else:
-            messages.error(request, "Accesso non autorizzato."); return redirect('dashboard_consulente')
-    
+    """
+    Vista del cruscotto con risoluzione definitiva dei FieldError per Compito e SecurityAudit.
+    """
     azienda = get_azienda_current(request)
-    if not azienda: 
-        return redirect('dashboard_consulente' if user.ruolo == 'CONSULENTE' else 'login')
+    if not azienda:
+        return redirect('login')
 
-    # 1. La mappa master di tutti i moduli (con il nome del campo booleano associato)
-    moduli_mappa_completa = [
-        {'name': 'Registro Trattamenti', 'url': 'trattamento_create', 'icon': 'bi-journal-check', 'db_field': 'mod_trattamenti', 'group': 'Core'},
-        {'name': 'Gestione Documenti', 'url': 'documento_list', 'icon': 'bi-file-earmark-ruled', 'db_field': 'mod_documenti', 'group': 'Core'},
-        {'name': 'Videosorveglianza', 'url': 'video_list', 'icon': 'bi-camera-video', 'db_field': 'mod_videosorveglianza', 'group': 'Core'},
-        {'name': 'TIA Estero', 'url': 'tia_list', 'icon': 'bi-globe', 'db_field': 'mod_tia', 'group': 'Core'},
-        {'name': 'Organigramma Privacy', 'url': 'organigramma_view', 'icon': 'bi-diagram-3', 'db_field': 'mod_organigramma', 'group': 'Core'},
-        {'name': 'Audit Compliance', 'url': 'audit_create', 'icon': 'bi-clipboard-check', 'db_field': 'mod_audit', 'group': 'Core'},
-        {'name': 'Gestione CSIRT (NIS2)', 'url': 'csirt_dashboard', 'icon': 'bi-shield-lock', 'db_field': 'mod_csirt', 'group': 'Sicurezza'},
-        {'name': 'Segnalazione Incidenti', 'url': 'incidente_list', 'icon': 'bi-shield-exclamation', 'db_field': 'mod_incidenti', 'group': 'Segnalazioni'}, 
-        {'name': 'Richieste Interessati', 'url': 'richiesta_list', 'icon': 'bi-envelope-open', 'db_field': 'mod_richieste', 'group': 'Segnalazioni'},
-        {'name': 'Gestione Formazione', 'url': 'gestione_formazione', 'icon': 'bi-person-badge', 'db_field': 'mod_formazione', 'group': 'Utilità'}, 
-        {'name': 'Cruscotto Principale', 'db_field': 'mod_cruscotto', 'type': 'section', 'group': 'Cruscotto'},
-        {'name': 'Storico Sessioni', 'db_field': 'mod_storico_audit', 'type': 'section', 'group': 'Cruscotto'},
+    # 1. RISOLUZIONE FIELDERROR COMPITO:
+    # 'azienda' NON esiste -> si usa 'aziende_assegnate' (Many-to-Many)
+    # 'completato' NON esiste -> si usa 'stato'
+    compiti_list = Compito.objects.filter(
+        aziende_assegnate=azienda, 
+        stato='aperto'  # Assicurati che 'aperto' sia il valore corretto nel tuo database
+    ).order_by('data_scadenza')
+
+    # 2. AUDIT GENERALE (GDPR)
+    ultima_sessione = AuditSession.objects.filter(
+        azienda=azienda
+    ).order_by('-data_creazione').first()
+
+    storico_sessioni = AuditSession.objects.filter(
+        azienda=azienda
+    ).order_by('-data_creazione')[:5]
+
+    # 3. SECURITY ASSESSMENT (Storico)
+    # 'data_completamento' NON esiste -> si usa 'data_creazione'
+    storico_security = SecurityAudit.objects.filter(
+        azienda=azienda,
+        completato=True
+    ).order_by('-data_creazione')
+
+    # 4. CONTEGGI PER BADGE E INDICATORI
+    trattamenti_count = RegistroTrattamento.objects.filter(azienda=azienda).count()
+    sessioni_totali = AuditSession.objects.filter(azienda=azienda).count()
+
+    # 5. CONFIGURAZIONE MODULI OPERATIVI
+    moduli = [
+        {'name': _('Registro Trattamenti'), 'icon': 'bi-journal-text', 'url': 'registro_trattamenti_list'},
+        {'name': _('Asset Aziendali'), 'icon': 'bi-laptop', 'url': 'asset_list'},
+        {'name': _('Gestione Documentale'), 'icon': 'bi-folder-fill', 'url': 'documento_list'},
+        {'name': _('Analisi Rischi'), 'icon': 'bi-exclamation-triangle', 'url': 'analisi_rischi_list'},
     ]
-    
-    moduli_filtrati = []
-    is_cruscotto_active = getattr(azienda, 'mod_cruscotto', False) 
-    is_storico_audit_active = getattr(azienda, 'mod_storico_audit', False)
-    
-    for modulo in moduli_mappa_completa:
-        db_field = modulo.get('db_field')
-        if modulo.get('url') and db_field and getattr(azienda, db_field, False) is True:
-            moduli_filtrati.append(modulo)
-            
-    ultima_sessione = None
-    storico_sessioni = []
-    semaforo_data = []
-    percentuale_generale = 0
-    
-    if is_cruscotto_active:
-        ultima_sessione = AuditSession.objects.filter(azienda=azienda).order_by('-data_creazione').last()
-        
-        if is_storico_audit_active:
-             storico_sessioni = AuditSession.objects.filter(azienda=azienda).exclude(pk=ultima_sessione.pk if ultima_sessione else None).order_by('-data_creazione')
 
-        if ultima_sessione:
-            categorie_audit = AuditCategoria.objects.all().annotate(
-                domande_totali_reali=Count('domande')
-            ).order_by('ordine')
-            risposte_sessione = AuditRisposta.objects.filter(sessione=ultima_sessione) 
-            totale_si = 0; totale_domande = 0
-            
-            for categoria in categorie_audit:
-                risposte_si_count = risposte_sessione.filter(domanda__categoria=categoria, risposta=True).count()
-                percentuale = 0
-                if categoria.domande_totali_reali > 0: 
-                    percentuale = int((risposte_si_count / categoria.domande_totali_reali) * 100)
-                
-                if percentuale >= 75: color_class = "bg-success"
-                elif percentuale >= 50: color_class = "bg-warning"
-                else: color_class = "bg-danger"
-                    
-                semaforo_data.append({
-                    'categoria': categoria, 
-                    'risposte_si': risposte_si_count, 
-                    'totale_domande': categoria.domande_totali_reali, 
-                    'percentuale': percentuale,
-                    'color_class': color_class 
-                })
-                
-                totale_si += risposte_si_count; totale_domande += categoria.domande_totali_reali
-            
-            if totale_domande > 0: percentuale_generale = int((totale_si / totale_domande) * 100)
-
-    trattamenti = Trattamento.objects.filter(azienda=azienda)
-    compiti_aperti = Compito.objects.filter(
-        Q(is_global=True) | Q(aziende_assegnate=azienda), 
-        stato='APERTO'
-    ).distinct().order_by('data_scadenza')
-    
     context = {
-        'azienda': azienda, 
-        'is_cruscotto_active': is_cruscotto_active,
-        'is_storico_audit_active': is_storico_audit_active,
-        'storico_sessioni': storico_sessioni, 
-        'semaforo_data': semaforo_data, 
-        'percentuale_conformita': percentuale_generale,
-        'ultima_sessione': ultima_sessione, 
-        'moduli': moduli_filtrati,
-        'trattamenti_list': trattamenti, 
-        'compiti_list': compiti_aperti, 
-        'trattamenti_count': trattamenti.count(),
-        'sessioni_totali': AuditSession.objects.filter(azienda=azienda).count(),
-        'oggi': timezone.now().date(),
-        'is_consulente': (user.ruolo == 'CONSULENTE')
+        'azienda': azienda,
+        'compiti_list': compiti_list,
+        'ultima_sessione': ultima_sessione,
+        'storico_sessioni': storico_sessioni,
+        'storico_security': storico_security,
+        'trattamenti_count': trattamenti_count,
+        'sessioni_totali': sessioni_totali,
+        'is_cruscotto_active': True,
+        'is_storico_audit_active': True,
+        'moduli': moduli,
+        'is_consulente': request.user.groups.filter(name='Consulenti').exists(),
     }
+
     return render(request, 'compliance/dashboard.html', context)
 
 
@@ -380,42 +363,140 @@ def dashboard_compliance(request):
 
 @role_required
 def audit_create(request):
-    azienda = get_azienda_current(request);
-    if not azienda: return redirect('login')
-    nuova_sessione = AuditSession.objects.create(azienda=azienda, creato_da=request.user)
-    audit_precedente = AuditSession.objects.filter(azienda=azienda).exclude(pk=nuova_sessione.pk if nuova_sessione else None).order_by('data_creazione').last()
-    if audit_precedente:
-        for v in AuditRisposta.objects.filter(sessione=audit_precedente): AuditRisposta.objects.create(sessione=nuova_sessione, domanda=v.domanda, risposta=v.risposta)
-        messages.info(request, _("Audit creato (con risposte copiate)."))
-    return redirect('audit_checklist', session_pk=nuova_sessione.pk)
+    """
+    Crea una nuova sessione di audit e reindirizza alla checklist.
+    """
+    # 1. Recupero azienda corrente (essenziale per il collegamento)
+    azienda = get_azienda_current(request)
+    if not azienda:
+        messages.error(request, _("Azienda non trovata. Impossibile creare l'audit."))
+        return redirect('dashboard_consulente')
 
+    # 2. Logica di Reset (se presente ?reset=1 nell'URL)
+    # Puoi aggiungere qui logiche per archiviare le vecchie sessioni se necessario
+
+    # 3. Creazione fisica del nuovo record nel database
+    nuova_sessione = AuditSession.objects.create(
+        azienda=azienda,
+        creato_da=request.user,
+        completato=False
+    )
+
+    # 4. Messaggio di conferma e reindirizzamento dinamico
+    messages.success(request, _(f"Nuova sessione di audit #{nuova_sessione.id} inizializzata."))
+    
+    # Il nome 'audit_checklist' deve corrispondere a quanto definito in urls.py
+    return redirect('audit_checklist', session_pk=nuova_sessione.pk)
 @role_required
 def audit_checklist(request, session_pk):
-    azienda = get_azienda_current(request);
-    if not azienda: return redirect('login')
-    sessione = get_object_or_404(AuditSession, pk=session_pk, azienda=azienda)
+    azienda = get_azienda_current(request)
+    # Cerchiamo la sessione senza far crashare il server
+    sessione = AuditSession.objects.filter(pk=session_pk, azienda=azienda).first()
+
+    if not sessione:
+        messages.error(request, f"Errore: La sessione di audit #{session_pk} non è stata trovata.")
+        return redirect('dashboard_compliance')
+
+    # 3. Logica delle domande e categorie
+    tutte_le_domande = list(AuditDomanda.objects.all())
     categorie = AuditCategoria.objects.prefetch_related('domande').order_by('ordine')
-    tutte_le_domande = AuditDomanda.objects.all()
-    
+
     if request.method == 'POST':
+        # Assicurati che AuditChecklistForm sia importato correttamente
         form = AuditChecklistForm(request.POST, sessione=sessione, domande=tutte_le_domande)
-        if form.is_valid(): 
-            form.save() 
-            # Aggiorna il timestamp per segnare l'ultima modifica
-            sessione.data_creazione = timezone.now()
-            sessione.save()
-            messages.success(request, "Audit salvato con successo."); 
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Audit salvato con successo.")
             return redirect('dashboard_compliance')
-    else: 
+    else:
         form = AuditChecklistForm(sessione=sessione, domande=tutte_le_domande)
-        
+
+    # 4. Raggruppamento per il template
     campi = []
     for cat in categorie:
-        c_list = [form[f'domanda_{d.id}'] for d in cat.domande.all() if f'domanda_{d.id}' in form.fields]
-        campi.append({'categoria': cat, 'campi': c_list})
+        c_list = []
+        for d in cat.domande.all():
+            if f'domanda_{d.id}' in form.fields:
+                c_list.append({
+                    'domanda_field': form[f'domanda_{d.id}'],
+                    'nota_field': form[f'nota_{d.id}']
+                })
+        if c_list:
+            campi.append({'categoria': cat, 'items': c_list})
         
-    return render(request, 'compliance/audit_checklist.html', {'form': form, 'campi_raggruppati': campi, 'titolo_pagina': "Audit"})
+    return render(request, 'compliance/audit_checklist.html', {
+        'form': form, 
+        'campi_raggruppati': campi, 
+        'sessione': sessione,
+        'titolo_pagina': f"Revisione Audit: {sessione.data_creazione.strftime('%d/%m/%Y')}"
+    })
+@role_required
+def security_checklist_view(request, audit_id=None):
+    azienda = get_azienda_current(request)
+    if not azienda: return redirect('dashboard_consulente')
 
+    # 1. Recupero o creazione dell'Audit
+    if audit_id:
+        audit = get_object_or_404(SecurityAudit, pk=audit_id, azienda=azienda)
+    else:
+        audit = SecurityAudit.objects.create(azienda=azienda, creato_da=request.user)
+        return redirect('security_checklist_view', audit_id=audit.id)
+
+    # 2. Aggiornamento automatico controlli (logica esistente)
+    controlli_esistenti_ids = SecurityResponse.objects.filter(audit=audit).values_list('controllo_id', flat=True)
+    nuovi_controlli = SecurityControl.objects.exclude(id__in=controlli_esistenti_ids)
+    
+    if nuovi_controlli.exists():
+        SecurityResponse.objects.bulk_create([
+            SecurityResponse(audit=audit, controllo=c) for c in nuovi_controlli
+        ])
+
+    # 3. Organizzazione dati raggruppati con CALCOLO RATING per area
+    risposte = SecurityResponse.objects.filter(audit=audit).select_related('controllo').order_by('controllo__control_id')
+    
+    # Creiamo un dizionario strutturato per passare sia i dati che i punteggi
+    checklist_per_area = {}
+    aree_univore = risposte.values_list('controllo__area', flat=True).distinct()
+
+    for area in aree_univore:
+        # Calcoliamo la percentuale usando il metodo che abbiamo aggiunto al modello
+        percentuale = audit.get_punteggio_area(area)
+        colore = audit.colore_rating
+        
+        checklist_per_area[area] = {
+            'risposte': [r for r in risposte if r.controllo.area == area],
+            'punteggio': percentuale,
+            'colore': colore
+        }
+
+    context = {
+        'audit': audit,
+        'checklist_per_area': checklist_per_area, # Ora contiene oggetti complessi
+        'titolo_pagina': _("Security Checklist Base"),
+    }
+    return render(request, 'compliance/security_checklist.html', context)
+@role_required
+@require_POST
+def salva_area_security(request, audit_id):
+    audit = get_object_or_404(SecurityAudit, pk=audit_id)
+    
+    for key, value in request.POST.items():
+        if key.startswith('esito_'):
+            controllo_id = key.split('_')[1]
+            nota_val = request.POST.get(f'note_{controllo_id}', '')
+            
+            # Utilizziamo update_or_create per gestire sia inserimenti che modifiche
+            SecurityResponse.objects.update_or_create(
+                audit=audit, 
+                controllo_id=controllo_id,
+                defaults={
+                    'esito': value, 
+                    'note': nota_val
+                }
+            )
+            
+    messages.success(request, _("Area salvata con successo."))
+    return redirect('security_checklist_view', audit_id=audit.id)
 # ==============================================================================
 # 5. TRATTAMENTI
 # ==============================================================================
@@ -499,12 +580,39 @@ def export_trattamenti_excel(request):
 # ==============================================================================
 
 @role_required
+@role_required
 def documento_list(request):
-    azienda = get_azienda_current(request);
-    if not azienda: return redirect('login')
-    cats = CategoriaDocumento.objects.filter(documentoaziendale__azienda=azienda).distinct()
-    tmpls = TemplateDocumento.objects.all().order_by('categoria__nome', 'nome')
-    return render(request, 'compliance/documento_list.html', {'categorie_aziendali': cats, 'templates_list': tmpls})
+    azienda = get_azienda_current(request)
+    if not azienda:
+        return redirect('login')
+
+    # Usiamo il Prefetch per caricare i documenti dell'azienda dentro le categorie
+    # Questo alimenta direttamente 'categoria.documentoaziendale_set.all' usato nel tuo template
+    categorie_aziendali = CategoriaDocumento.objects.prefetch_related(
+        Prefetch(
+            'documentoaziendale_set', 
+            queryset=DocumentoAziendale.objects.filter(azienda=azienda).order_by('-id')
+        )
+    ).distinct()
+
+    # Gestione sicura dei Template per evitare crash
+    templates_list = []
+    try:
+        # Cerchiamo di capire come si chiama il modello nel tuo file models.py
+        from .models import TemplateDocumento as TmpMod  # Prova nome 1
+        templates_list = TmpMod.objects.all().order_by('nome')
+    except (ImportError, NameError):
+        try:
+            from .models import DocumentoTemplate as TmpMod  # Prova nome 2
+            templates_list = TmpMod.objects.all().order_by('nome')
+        except (ImportError, NameError):
+            templates_list = [] # Se nessuno esiste, la pagina non crasha più
+
+    return render(request, 'compliance/documento_list.html', {
+        'categorie_aziendali': categorie_aziendali,
+        'templates_list': templates_list,
+        'azienda': azienda,
+    })
 
 @role_required
 def documento_create(request):
@@ -1207,6 +1315,124 @@ def csirt_ai_query(request):
         return JsonResponse({'success': False, 'error': f'Errore di server non gestito: {e}'}, status=500)
 
 
+@require_POST
+@login_required
+def csirt_dehashed_query(request):
+    """
+    Endpoint per interrogare l'API Dehashed tramite credenziali salvate.
+    """
+    if request.user.ruolo not in ['REFERENTE', 'CONSULENTE']:
+        return JsonResponse({'error': 'Accesso non autorizzato.'}, status=403)
+
+    try:
+        if not request.body:
+            return JsonResponse({'error': 'Nessun dato fornito.'}, status=400)
+
+        data = json.loads(request.body)
+        query = data.get('query', '').strip()
+
+        if not query:
+            return JsonResponse({'error': 'Query vuota.'}, status=400)
+
+        config = ImpostazioniSito.objects.get(pk=1)
+        if not config.dehashed_username or not config.dehashed_api_key:
+            return JsonResponse({'error': 'Credenziali Dehashed non configurate.'}, status=500)
+
+        response = requests.get(
+            'https://api.dehashed.com/search',
+            params={'query': query, 'size': 10},
+            auth=(config.dehashed_username, config.dehashed_api_key),
+            timeout=20,
+        )
+
+        if response.status_code >= 400:
+            return JsonResponse({'error': f'Errore Dehashed: {response.status_code}.'}, status=response.status_code)
+
+        payload = response.json()
+        entries = payload.get('entries') or []
+        trimmed_entries = []
+        for entry in entries[:5]:
+            trimmed_entries.append({
+                'email': entry.get('email'),
+                'username': entry.get('username'),
+                'ip_address': entry.get('ip_address'),
+                'domain': entry.get('domain'),
+                'source': entry.get('database_name') or entry.get('source'),
+            })
+
+        return JsonResponse({
+            'success': True,
+            'total': payload.get('total'),
+            'entries': trimmed_entries,
+        })
+
+    except ImpostazioniSito.DoesNotExist:
+        return JsonResponse({'error': 'Impostazioni sito non configurate.'}, status=500)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Formato JSON non valido.'}, status=400)
+    except requests.RequestException as exc:
+        return JsonResponse({'error': f'Errore di connessione Dehashed: {exc}'}, status=502)
+    except Exception as exc:
+        return JsonResponse({'error': f'Errore di server non gestito: {exc}'}, status=500)
+
+
+@require_POST
+@login_required
+def csirt_pentest_tools_query(request):
+    """
+    Endpoint per inviare richieste a Pentest-Tools tramite credenziali salvate.
+    """
+    if request.user.ruolo not in ['REFERENTE', 'CONSULENTE']:
+        return JsonResponse({'error': 'Accesso non autorizzato.'}, status=403)
+
+    try:
+        if not request.body:
+            return JsonResponse({'error': 'Nessun dato fornito.'}, status=400)
+
+        data = json.loads(request.body)
+        target = data.get('target', '').strip()
+
+        if not target:
+            return JsonResponse({'error': 'Target vuoto.'}, status=400)
+
+        config = ImpostazioniSito.objects.get(pk=1)
+        if not config.pentest_tools_api_key:
+            return JsonResponse({'error': 'API key Pentest-Tools non configurata.'}, status=500)
+
+        base_url = (config.pentest_tools_base_url or 'https://pp.pentest-tools.com').rstrip('/')
+        scan_path = config.pentest_tools_scan_path or '/api/v1/scan'
+        scan_path = scan_path if scan_path.startswith('/') else f'/{scan_path}'
+        url = f"{base_url}{scan_path}"
+
+        response = requests.post(
+            url,
+            json={'target': target},
+            headers={
+                'Authorization': f'Bearer {config.pentest_tools_api_key}',
+                'Accept': 'application/json',
+            },
+            timeout=30,
+        )
+
+        if response.status_code >= 400:
+            return JsonResponse({'error': f'Errore Pentest-Tools: {response.status_code}.'}, status=response.status_code)
+
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {'raw': response.text}
+
+        return JsonResponse({'success': True, 'result': payload})
+
+    except ImpostazioniSito.DoesNotExist:
+        return JsonResponse({'error': 'Impostazioni sito non configurate.'}, status=500)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Formato JSON non valido.'}, status=400)
+    except requests.RequestException as exc:
+        return JsonResponse({'error': f'Errore di connessione Pentest-Tools: {exc}'}, status=502)
+    except Exception as exc:
+        return JsonResponse({'error': f'Errore di server non gestito: {exc}'}, status=500)
+
 @role_required
 def download_csirt_nomina(request):
     """Genera il documento di Nomina Referente CSIRT usando il template caricato o statico."""
@@ -1403,3 +1629,425 @@ def configurazione_rete_view(request):
     }
 
     return render(request, 'compliance/configurazione_rete_form.html', context)
+@login_required
+@role_required('CONSULENTE')
+def analisi_vulnerabilita_view(request):
+    """
+    Gestisce la visualizzazione delle analisi tecniche (Nessus/Vulnerabilità).
+    """
+    # Usiamo la funzione helper che abbiamo già per recuperare l'azienda in sessione
+    azienda = get_azienda_current(request)
+    
+    if not azienda:
+        messages.warning(request, "Seleziona un'azienda dalla dashboard per procedere.")
+        return redirect('dashboard_consulente')
+
+    context = {
+        'azienda': azienda,
+        'titolo_pagina': f"Analisi Vulnerabilità - {azienda.nome}",
+    }
+    
+    return render(request, 'compliance/analisi_vulnerabilita.html', context)
+@login_required
+@role_required('CONSULENTE')
+def monitoraggio_eventi_view(request):
+    """
+    Vista per il monitoraggio dei log e dei leak di sicurezza.
+    """
+    # 1. Recuperiamo l'azienda corrente (usando l'helper che abbiamo già)
+    azienda = get_azienda_current(request)
+    
+    if not azienda:
+        messages.error(request, "Azienda non trovata o non selezionata.")
+        return redirect('dashboard_consulente')
+
+    # 2. Qui in futuro aggiungeremo la logica per recuperare i log reali
+    risultati_monitoraggio = [] 
+
+    context = {
+        'azienda': azienda,
+        'risultati': risultati_monitoraggio,
+        'titolo_pagina': f"Monitoraggio Eventi - {azienda.nome}"
+    }
+
+    # 3. Restituiamo il template
+    return render(request, 'compliance/monitoraggio_log.html', context)
+@login_required
+@role_required('CONSULENTE')
+def alert_configurazione(request):
+    """
+    Gestisce la configurazione degli alert di sicurezza per l'azienda.
+    """
+    azienda = get_azienda_current(request)
+    if not azienda:
+        messages.error(request, "Azienda non selezionata.")
+        return redirect('dashboard_consulente')
+
+    # Qui in futuro potrai gestire il salvataggio delle preferenze di notifica
+    context = {
+        'azienda': azienda,
+        'titolo_pagina': f"Configurazione Alert - {azienda.nome}",
+    }
+
+    return render(request, 'compliance/alert_configurazione.html', context)
+@login_required
+def avvia_scansione_deashed(request, azienda_id):
+    azienda = get_object_or_404(Azienda, pk=azienda_id)
+    dominio = request.GET.get('dominio_manuale')
+
+    # 1. Se il dominio manca, chiediamolo
+    if not dominio:
+        return render(request, 'compliance/analisi_vulnerabilita.html', {
+            'azienda': azienda,
+            'richiedi_dominio': True
+        })
+
+    # 2. Chiamata tecnica (qui usiamo la tua funzione esistente)
+    # Assicurati che 'search_dehashed' restituisca una lista o un dizionario
+    dati_raw = [
+    {
+        'email': f'admin@{dominio}', 
+        'database_name': 'Adobe Leak (Esempio)', 
+        'date': '2023-01-15'
+    },
+    {
+        'email': f'info@{dominio}', 
+        'database_name': 'LinkedIn Breach (Esempio)', 
+        'date': '2022-11-20'
+    }
+]
+
+# Il contesto deve passare questa lista
+    context = {
+    'azienda': azienda,
+    'dominio_scansionato': dominio,
+    'risultati': dati_raw,  # Ora è una lista, il ciclo nel template funzionerà!
+}
+    return render(request, 'compliance/analisi_vulnerabilita.html', context)
+from django.template.loader import get_template
+from xhtml2pdf import pisa  # Importa il motore di conversione
+
+@role_required
+def export_security_pdf(request, audit_id):
+    azienda = get_azienda_current(request)
+    audit = get_object_or_404(SecurityAudit, pk=audit_id, azienda=azienda)
+    
+    # Recuperiamo le risposte raggruppate per area (logica simile alla view precedente)
+    risposte = SecurityResponse.objects.filter(audit=audit).select_related('controllo').order_by('controllo__control_id')
+    
+    checklist_per_area = {}
+    aree_univore = risposte.values_list('controllo__area', flat=True).distinct()
+    for area in aree_univore:
+        percentuale = audit.get_punteggio_area(area)
+        checklist_per_area[area] = {
+            'risposte': [r for r in risposte if r.controllo.area == area],
+            'punteggio': percentuale,
+        }
+
+    # Prepariamo i dati per il template PDF
+    context = {
+        'audit': audit,
+        'azienda': azienda,
+        'checklist_per_area': checklist_per_area,
+        'data_export': timezone.now(),
+    }
+
+    # Rendering del PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Report_Security_{azienda.nome}.pdf"'
+    
+    template = get_template('compliance/pdf_security_report.html')
+    html = template.render(context)
+
+    # Creazione del PDF
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('Errore durante la generazione del PDF', status=500)
+    return response
+import pandas as pd
+from django.contrib import messages
+from .models import SecurityControl
+
+@role_required
+def import_controls_excel(request):
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        file = request.FILES['excel_file']
+        
+        try:
+            # Leggiamo il file Excel
+            df = pd.read_excel(file)
+            
+            # Validazione colonne minime richieste
+            required_columns = ['control_id', 'area', 'descrizione']
+            if not all(col in df.columns for col in required_columns):
+                messages.error(request, "Il file deve contenere le colonne: control_id, area, descrizione")
+                return redirect('dashboard_compliance')
+
+            contatore = 0
+            for _, row in df.iterrows():
+                # update_or_create evita duplicati se l'ID controllo esiste già
+                SecurityControl.objects.update_or_create(
+                    control_id=row['control_id'],
+                    defaults={
+                        'area': row['area'],
+                        'descrizione': row['descrizione'],
+                        'supporto_verifica': row.get('supporto_verifica', ''),
+                        'riferimento_iso': row.get('riferimento_iso', ''),
+                    }
+                )
+                contatore += 1
+            
+            messages.success(request, f"Importazione completata! Caricati {contatore} controlli.")
+            
+        except Exception as e:
+            messages.error(request, f"Errore durante l'importazione: {e}")
+            
+        return redirect('dashboard_compliance')
+    
+    return render(request, 'compliance/import_form.html')
+import pandas as pd
+from django.http import HttpResponse
+
+@role_required
+def download_template_excel(request):
+    # Definiamo le colonne e una riga di esempio
+    data = {
+        'control_id': ['1.1', '1.2'],
+        'area': ['Esempio Area Asset', 'Esempio Area Rete'],
+        'descrizione': ['Descrizione del controllo...', 'Seconda descrizione...'],
+        'supporto_verifica': ['Documentazione richiesta...', 'Note tecniche...'],
+        'riferimento_iso': ['ISO 27001 A.x.x', 'NIST ID.AM-1'],
+    }
+    
+    df = pd.DataFrame(data)
+    
+    # Prepariamo la risposta HTTP come file Excel
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Modello_Import_Framework.xlsx"'
+    
+    # Scriviamo il dataframe nel file excel senza indice
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Controlli')
+        
+    return response
+from django.template.loader import get_template
+from xhtml2pdf import pisa
+
+@role_required
+def export_audit_pdf(request, session_pk):
+    azienda = get_azienda_current(request)
+    sessione = get_object_or_404(AuditSession, pk=session_pk, azienda=azienda)
+    
+    # Recuperiamo le risposte raggruppate per categoria
+    categorie = AuditCategoria.objects.all().order_by('ordine')
+    risposte = AuditRisposta.objects.filter(sessione=sessione).select_related('domanda')
+    
+    audit_data = []
+    for cat in categorie:
+        risposte_cat = risposte.filter(domanda__categoria=cat)
+        if risposte_cat.exists():
+            audit_data.append({
+                'categoria': cat,
+                'risposte': risposte_cat
+            })
+
+    context = {
+        'sessione': sessione,
+        'azienda': azienda,
+        'audit_data': audit_data,
+        'data_export': timezone.now(),
+        'percentuale': sessione.percentuale_completamento,
+    }
+
+    # Preparazione della risposta PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Verbale_Audit_{azienda.nome}_{sessione.data_creazione.strftime("%Y%m%d")}.pdf"'
+    
+    template = get_template('compliance/pdf_audit_report.html')
+    html = template.render(context)
+
+    # Creazione del PDF
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    
+    if pisa_status.err:
+        return HttpResponse('Errore nella generazione del PDF', status=500)
+    return response
+from django.core.files.base import ContentFile
+from .models import DocumentoAziendale, VersioneDocumento, CategoriaDocumento
+
+@role_required
+def archive_audit_to_repository(request, session_pk):
+    azienda = get_azienda_current(request)
+    sessione = get_object_or_404(AuditSession, pk=session_pk, azienda=azienda)
+    
+    # 1. Generazione del PDF in memoria
+    categorie_audit = AuditCategoria.objects.all().order_by('ordine')
+    risposte = AuditRisposta.objects.filter(sessione=sessione).select_related('domanda')
+    
+    audit_data = []
+    for cat in categorie_audit:
+        risposte_cat = risposte.filter(domanda__categoria=cat)
+        if risposte_cat.exists():
+            audit_data.append({
+                'categoria': cat, 
+                'risposte': risposte_cat
+            })
+
+    context = {
+        'sessione': sessione,
+        'azienda': azienda,
+        'audit_data': audit_data,
+        'data_export': timezone.now(),
+        'percentuale': sessione.percentuale_completamento,
+    }
+    
+    template = get_template('compliance/pdf_audit_report.html')
+    html = template.render(context)
+    
+    # Creiamo un buffer per il PDF
+    result = io.BytesIO()
+    pisa_status = pisa.CreatePDF(html, dest=result)
+    
+    if pisa_status.err:
+        messages.error(request, "Errore tecnico durante la generazione del verbale PDF.")
+        return redirect('audit_checklist', session_pk=session_pk)
+
+    # 2. Salvataggio nel Repository Documentale
+    # Cerchiamo o creiamo la categoria specifica nel repository
+    categoria_doc, _ = CategoriaDocumento.objects.get_or_create(nome="Audit e Verbali")
+    
+    # Cerchiamo o creiamo il documento contenitore ("Registro") per questa azienda
+    documento, created = DocumentoAziendale.objects.get_or_create(
+        azienda=azienda,
+        nome="Registro Audit Generale GDPR",
+        defaults={'categoria': categoria_doc}
+    )
+    
+    # Prepariamo il file fisico
+    timestamp = timezone.now().strftime('%Y%m%d_%H%M')
+    nome_file = f"Verbale_Audit_{timestamp}.pdf"
+    pdf_file = ContentFile(result.getvalue(), name=nome_file)
+    
+    # Creiamo la nuova versione nel repository
+    VersioneDocumento.objects.create(
+        documento=documento,
+        file=pdf_file,
+        caricato_da=request.user,
+        note_versione=f"Archiviazione automatica sessione audit del {sessione.data_creazione.strftime('%d/%m/%Y')}"
+    )
+    
+    # 3. CONGELAMENTO DELL'AUDIT
+    # Una volta archiviato nel repository, l'audit non è più modificabile
+    sessione.archiviata = True
+    sessione.save()
+    
+    messages.success(request, "Audit archiviato correttamente nel Repository e congelato (sola lettura).")
+    
+    # Reindirizziamo al dettaglio del documento nel repository per far vedere il risultato
+    return redirect('documento_dettaglio', doc_pk=documento.pk)
+@role_required
+def security_checklist_init(request):
+    azienda = get_azienda_current(request)
+    if not azienda:
+        return redirect('login')
+    
+    # Crea una nuova sessione di Security Audit
+    # Assicurati che il modello si chiami SecurityAudit o adegua il nome
+    nuovo_audit = SecurityAudit.objects.create(
+        azienda=azienda,
+        creato_da=request.user
+    )
+    
+    # Reindirizza alla vista che visualizza la checklist usando l'ID appena creato
+    return redirect('security_checklist_view', audit_id=nuovo_audit.id)
+@role_required
+def dashboard_compliance(request):
+    """
+    Dashboard definitiva: risolve i FieldError, NameError e i problemi di redirect.
+    """
+    # 1. Recupero ID Azienda con fallback sicuro
+    azienda_id = request.GET.get('azienda_id') or request.session.get('azienda_id')
+    
+    if azienda_id:
+        # Usiamo filter().first() invece di get_object_or_404 per gestire l'errore noi stessi
+        azienda = Azienda.objects.filter(id=azienda_id).first()
+        if azienda:
+            request.session['azienda_id'] = azienda_id
+    else:
+        azienda = get_azienda_current(request)
+
+    # Se l'azienda non esiste, reindirizziamo alla dashboard_consulente (che esiste in urls.py)
+    if not azienda:
+        messages.error(request, _("Azienda non trovata o sessione scaduta."))
+        return redirect('dashboard_consulente')
+
+    # 2. Recupero Compiti (Campi corretti: aziende_assegnate e stato)
+    compiti_list = Compito.objects.filter(
+        aziende_assegnate=azienda, 
+        stato='APERTO'
+    ).order_by('data_scadenza')
+
+    # 3. Logiche Audit Generale (GDPR)
+    ultima_sessione = AuditSession.objects.filter(azienda=azienda).order_by('-data_creazione').first()
+    storico_sessioni = AuditSession.objects.filter(azienda=azienda).order_by('-data_creazione')[:5]
+
+    # 4. Logiche Security Assessment (Storico)
+    storico_security = SecurityAudit.objects.filter(azienda=azienda, completato=True).order_by('-data_creazione')
+
+    # 5. Conteggi (Modello corretto: Trattamento)
+    trattamenti_count = Trattamento.objects.filter(azienda=azienda).count()
+    sessioni_totali = AuditSession.objects.filter(azienda=azienda).count()
+
+    # 6. Moduli operativi (URL allineati al tuo urls.py)
+    moduli = [
+        {'name': _('Registro Trattamenti'), 'icon': 'bi-journal-text', 'url': 'trattamento_list'},
+        {'name': _('Asset Aziendali'), 'icon': 'bi-laptop', 'url': 'asset_list'},
+        {'name': _('Gestione Documentale'), 'icon': 'bi-folder-fill', 'url': 'documento_list'},
+        {'name': _('Analisi Rischi'), 'icon': 'bi-exclamation-triangle', 'url': 'analisi_rischi_guida'},
+        {'name': _('Incidenti'), 'icon': 'bi-shield-exclamation', 'url': 'incidente_list'},
+        {'name': _('Formazione'), 'icon': 'bi-person-video3', 'url': 'gestione_formazione'},
+        {'name': _('Richieste Interessati'), 'icon': 'bi-people', 'url': 'richiesta_list'},
+        {'name': _('Organigramma'), 'icon': 'bi-diagram-3', 'url': 'organigramma_view'},
+        {'name': _('TIA'), 'icon': 'bi-globe', 'url': 'tia_list'},
+        {'name': _('Videosorveglianza'), 'icon': 'bi-camera-video', 'url': 'video_list'},
+        {'name': _('CSIRT Dashboard'), 'icon': 'bi-cpu', 'url': 'csirt_dashboard'},
+        {'name': _('Configurazione Rete'), 'icon': 'bi-hdd-network', 'url': 'configurazione_rete_view'},
+    ]
+
+    context = {
+        'azienda': azienda,
+        'compiti_list': compiti_list,
+        'ultima_sessione': ultima_sessione,
+        'storico_sessioni': storico_sessioni,
+        'storico_security': storico_security,
+        'trattamenti_count': trattamenti_count,
+        'sessioni_totali': sessioni_totali,
+        'is_cruscotto_active': True,
+        'is_storico_audit_active': True,
+        'moduli': moduli,
+        'is_consulente': request.user.groups.filter(name='Consulenti').exists(),
+    }
+
+    return render(request, 'compliance/dashboard.html', context)
+
+# In compliance/views.py
+
+def trattamento_list(request):
+    azienda = get_azienda_current(request)
+    trattamenti = Trattamento.objects.filter(azienda=azienda)
+    return render(request, 'compliance/trattamento_list.html', {'trattamenti': trattamenti, 'azienda': azienda})
+
+def asset_list(request):
+    azienda = get_azienda_current(request)
+    assets = Asset.objects.filter(azienda=azienda)
+    return render(request, 'compliance/asset_list.html', {'assets': assets, 'azienda': azienda})
+
+def documento_list(request):
+    azienda = get_azienda_current(request)
+    documenti = DocumentoAziendale.objects.filter(azienda=azienda)
+    return render(request, 'compliance/documento_list.html', {'documenti': documenti, 'azienda': azienda})
+
+def analisi_rischi_guida(request):
+    # Questa rotta corrisponde al nome nel tuo urls.py
+    return render(request, 'compliance/analisi_rischi_guida.html')

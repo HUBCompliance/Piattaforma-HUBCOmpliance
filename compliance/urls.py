@@ -14,12 +14,27 @@ urlpatterns = [
     # Audit
     path('audit/create/', views.audit_create, name='audit_create'),
     path('audit/checklist/<int:session_pk>/', views.audit_checklist, name='audit_checklist'),
+    path('audit/export-pdf/<int:session_pk>/', views.export_audit_pdf, name='export_audit_pdf'),
+    path('audit/archive/<int:session_pk>/', views.archive_audit_to_repository, name='archive_audit_to_repository'),
+    path('audit/export-pdf/<int:session_pk>/', views.export_audit_pdf, name='export_audit_pdf'),
+
+    # Security Checklist
+    path('security-checklist/', views.security_checklist_view, name='security_checklist_init'),
+    path('security-checklist/<int:audit_id>/', views.security_checklist_view, name='security_checklist_view'),
+    path('security-checklist/<int:audit_id>/salva-area/', views.salva_area_security, name='salva_area_security'),
+    path('security/audit/<int:audit_id>/pdf/', views.export_security_pdf, name='export_security_pdf'),
+    path('import/controls/', views.import_controls_excel, name='import_controls_excel'),
+    path('import/download-template/', views.download_template_excel, name='download_template_excel'),
+    path('security-checklist/init/', views.security_checklist_init, name='security_checklist_init'),
+    path('security-checklist/<int:audit_id>/', views.security_checklist_view, name='security_checklist_view'),
 
     # Trattamenti
     path('trattamenti/nuovo/', views.trattamento_create, name='trattamento_create'),
     path('trattamenti/modifica/<int:pk>/', views.trattamento_update, name='trattamento_update'),
     path('trattamenti/checklist/<int:pk>/', views.checklist_trattamento, name='checklist_trattamento'),
     path('trattamenti/export/excel/', views.export_trattamenti_excel, name='export_trattamenti_excel'),
+    path('trattamenti/', views.trattamento_list, name='trattamento_list'), 
+    path('asset/', views.asset_list, name='asset_list'),
     
     # Documenti
     path('documenti/', views.documento_list, name='documento_list'),
@@ -91,4 +106,11 @@ urlpatterns = [
     path('csirt/upload-template/', views.csirt_upload_template, name='csirt_upload_template'),
     path('csirt/config-rete/', views.configurazione_rete_view, name='configurazione_rete_view'),
     path('csirt/ai-query/', views.csirt_ai_query, name='csirt_ai_query'),
-]
+    path('csirt/dehashed-query/', views.csirt_dehashed_query, name='csirt_dehashed_query'),
+    path('csirt/pentest-tools-query/', views.csirt_pentest_tools_query, name='csirt_pentest_tools_query'),
+
+    # Strumenti Tecnici per il Consulente
+    path('consulente/analisi-vulnerabilita/', views.analisi_vulnerabilita_view, name='analisi_vulnerabilita_view'),
+    path('consulente/monitoraggio-eventi/', views.monitoraggio_eventi_view, name='monitoraggio_eventi_view'),
+    path('consulente/alert-configurazione/', views.alert_configurazione, name='alert_configurazione'),
+    ]

@@ -1,0 +1,25 @@
+.admin-tabs-nav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+.tab-btn {
+    padding: 10px 20px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    font-weight: bold;
+    color: #666;
+}
+.tab-btn.active {
+    background: #005a9c;
+    color: white;
+    border-color: #005a9c;
+}
+fieldset {
+    border: none !important;
+    margin-top: 0 !important;
+}

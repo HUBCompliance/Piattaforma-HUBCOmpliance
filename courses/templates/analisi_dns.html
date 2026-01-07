@@ -1,0 +1,96 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="bi bi-globe2 text-info me-2"></i>
+            {% translate "Analisi DNS" %} - {{ azienda.nome }}
+        </h1>
+        <a href="{% url 'dashboard_consulente' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> {% translate "Torna alla Dashboard" %}
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label class="fw-bold">{% translate "Dominio da analizzare:" %}</label>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" name="domain" class="form-control" placeholder="es. masedati.it" value="{{ dominio|default:'' }}" required>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-info text-white">
+                        <i class="bi bi-search"></i> {% translate "Esegui Report" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if errore %}
+        <div class="alert alert-danger shadow-sm">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ errore }}
+        </div>
+    {% endif %}
+
+    {% if risultati %}
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card shadow-sm border-start border-info border-4">
+                    <div class="card-header bg-light py-2">
+                        <h6 class="m-0 font-weight-bold text-info">
+                            <i class="bi bi-geo-alt-fill me-2"></i>{% translate "Propagazione Globale DNS" %}
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light small text-uppercase">
+                                    <tr>
+                                        <th>{% translate "Posizione Server" %}</th>
+                                        <th>{% translate "Indirizzo IP Rilevato" %}</th>
+                                        <th>{% translate "Stato" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for record in risultati %}
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-pin-map-fill text-muted me-2"></i>
+                                            {{ record.location }}
+                                        </td>
+                                        <td><code>{{ record.resultvalue }}</code></td>
+                                        <td>
+                                            {% if record.resultstatus == 'ok' %}
+                                                <span class="badge bg-success-soft text-success" style="background-color: #e6fcf5;">
+                                                    <i class="bi bi-check-circle-fill"></i> OK
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning-soft text-warning" style="background-color: #fff9db;">
+                                                    {{ record.resultstatus }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% elif dominio and not errore %}
+        <div class="card shadow-sm border-0 py-5">
+            <div class="card-body text-center">
+                <i class="bi bi-info-circle display-4 text-gray-200 mb-3"></i>
+                <p class="text-muted lead">{% translate "Nessun dato trovato per questo dominio." %}</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

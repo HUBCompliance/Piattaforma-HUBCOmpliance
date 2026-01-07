@@ -6,9 +6,9 @@ from .models import (
     AuditCategoria, AuditRisposta, Compito, Asset, Software, 
     RuoloPrivacy, Paese, ValutazioneTIA, Videosorveglianza,
     ReferenteCSIRT, NotificaIncidente,
-    CategoriaDati, SoggettoInteressato, ConfigurazioneRete, ComponenteRete
+    CategoriaDati, SoggettoInteressato, ConfigurazioneRete, ComponenteRete,
+    SecurityControl, SecurityAudit, SecurityResponse  # Assicurati che questi siano definiti in models.py
 )
-
 
 # ==============================================================================
 # 1. ADMIN PER MODELLI BASE e TRATTAMENTI
@@ -24,19 +24,10 @@ class SoggettoInteressatoAdmin(admin.ModelAdmin):
 
 @admin.register(Trattamento)
 class TrattamentoAdmin(admin.ModelAdmin):
-    list_display = (
-        'nome_trattamento', 
-        'azienda', 
-        'tipo_ruolo', 
-        'livello_rischio', 
-        'dpia_necessaria'
-    )
+    list_display = ('nome_trattamento', 'azienda', 'tipo_ruolo', 'livello_rischio', 'dpia_necessaria')
     list_filter = ('tipo_ruolo', 'livello_rischio', 'dpia_necessaria', 'azienda')
     search_fields = ('nome_trattamento', 'finalita')
-    filter_horizontal = (
-        'categorie_dati', 
-        'soggetti_interessati',
-    )
+    filter_horizontal = ('categorie_dati', 'soggetti_interessati',)
     
     fieldsets = (
         (_('Informazioni di Base'), {
@@ -52,7 +43,6 @@ class TrattamentoAdmin(admin.ModelAdmin):
             'fields': ('misure_sicurezza', 'livello_rischio', 'punteggio_rischio_calcolato', 'dpia_necessaria')
         }),
     )
-
 
 # ==============================================================================
 # 2. ADMIN PER GESTIONE DOCUMENTALE
@@ -70,7 +60,6 @@ class DocumentoAziendaleAdmin(admin.ModelAdmin):
     list_filter = ('categoria', 'azienda')
     search_fields = ('nome',)
     inlines = [VersioneDocumentoInline]
-
 
 # ==============================================================================
 # 3. ADMIN PER AUDIT
@@ -92,7 +81,6 @@ class AuditSessionAdmin(admin.ModelAdmin):
     list_filter = ('completato', 'azienda')
     readonly_fields = ('data_creazione', 'creato_da')
 
-
 # ==============================================================================
 # 4. ADMIN PER INCIDENTI E RICHIESTE
 # ==============================================================================
@@ -109,7 +97,6 @@ class RichiestaInteressatoAdmin(admin.ModelAdmin):
     list_filter = ('tipo_richiesta', 'stato', 'azienda')
     readonly_fields = ('data_ricezione',)
 
-
 # ==============================================================================
 # 5. ADMIN PER COMPITI, ASSET E SOFTWARE
 # ==============================================================================
@@ -119,7 +106,6 @@ class CompitoAdmin(admin.ModelAdmin):
     list_display = ('titolo', 'stato', 'priorita', 'data_scadenza', 'is_global')
     list_filter = ('stato', 'priorita', 'is_global', 'aziende_assegnate')
     filter_horizontal = ('aziende_assegnate',)
-
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
@@ -131,32 +117,18 @@ class SoftwareAdmin(admin.ModelAdmin):
     list_display = ('nome_software', 'azienda', 'tipologia', 'locazione_server')
     list_filter = ('tipologia', 'azienda')
 
-
 # ==============================================================================
-# 6. ADMIN PER ORGANIGRAMMA PRIVACY (FIX: E108/E116)
+# 6. ADMIN PER ORGANIGRAMMA PRIVACY
 # ==============================================================================
 
 @admin.register(RuoloPrivacy)
 class RuoloPrivacyAdmin(admin.ModelAdmin):
-    # Questi campi sono validi se il modello è definito correttamente
-    list_display = (
-        'nome_cognome', 
-        'ruolo_tipo',    
-        'azienda',       
-    )
-    list_filter = (
-        'ruolo_tipo', 
-        'azienda',       
-    )
-    
+    list_display = ('nome_cognome', 'ruolo_tipo', 'azienda')
+    list_filter = ('ruolo_tipo', 'azienda')
     search_fields = ('nome_cognome', 'contatti')
-    
     fieldsets = (
-        (None, {
-            'fields': ('azienda', 'ruolo_tipo', 'nome_cognome', 'contatti', 'atto_nomina')
-        }),
+        (None, {'fields': ('azienda', 'ruolo_tipo', 'nome_cognome', 'contatti', 'atto_nomina')}),
     )
-
 
 # ==============================================================================
 # 7. ADMIN PER CSIRT (NIS2) e CONFIGURAZIONE RETE
@@ -164,28 +136,19 @@ class RuoloPrivacyAdmin(admin.ModelAdmin):
 
 @admin.register(ReferenteCSIRT)
 class ReferenteCSIRTAdmin(admin.ModelAdmin):
-    list_display = ('azienda', 'ref_nome', 'ref_ruolo', 'data_nomina', 'competenze_documentate')
+    list_display = ('azienda', 'ref_nome', 'ref_ruolo', 'data_nomina')
     search_fields = ('azienda__nome', 'ref_nome', 'ref_email')
     fieldsets = (
-        (_('Dati Azienda'), {
-            'fields': ('azienda', 'data_nomina')
-        }),
-        (_('Referente (Persona Fisica)'), {
-            'fields': ('referente_user', 'ref_nome', 'ref_cognome', 'ref_cf', 'ref_email', 'ref_telefono', 'ref_ruolo', 'competenze_documentate', 'motivo_esterno')
-        }),
-        (_('Punto di Contatto (per Nomina)'), {
-            'fields': ('pc_nome', 'pc_cognome', 'pc_email', 'codice_ipa')
-        }),
-        (_('Sostituti'), {
-            'fields': ('sos1_nome', 'sos1_cognome', 'sos1_cf', 'sos1_email', 'sos2_nome', 'sos2_cognome', 'sos2_cf', 'sos2_email')
-        }),
+        (_('Dati Azienda'), {'fields': ('azienda', 'data_nomina')}),
+        (_('Referente (Persona Fisica)'), {'fields': ('referente_user', 'ref_nome', 'ref_cognome', 'ref_cf', 'ref_email', 'ref_telefono', 'ref_ruolo', 'competenze_documentate', 'motivo_esterno')}),
+        (_('Punto di Contatto (per Nomina)'), {'fields': ('pc_nome', 'pc_cognome', 'pc_email', 'codice_ipa')}),
+        (_('Sostituti'), {'fields': ('sos1_nome', 'sos1_cognome', 'sos1_cf', 'sos1_email', 'sos2_nome', 'sos2_cognome', 'sos2_cf', 'sos2_email')}),
     )
 
 @admin.register(NotificaIncidente)
 class NotificaIncidenteAdmin(admin.ModelAdmin):
     list_display = ('titolo_incidente', 'azienda', 'stato', 'data_incidente', 'data_notifica')
     list_filter = ('stato', 'azienda')
-
 
 @admin.register(ConfigurazioneRete)
 class ConfigurazioneReteAdmin(admin.ModelAdmin):
@@ -197,3 +160,42 @@ class ConfigurazioneReteAdmin(admin.ModelAdmin):
 class ComponenteReteAdmin(admin.ModelAdmin):
     list_display = ('nome_componente', 'tipo', 'criticita', 'configurazione')
     list_filter = ('tipo', 'criticita')
+
+# ==============================================================================
+# 8. SECURITY CHECKLIST BASE (MASTER DOMANDE)
+# ==============================================================================
+
+@admin.register(SecurityControl)
+class SecurityControlAdmin(admin.ModelAdmin):
+    # Rimosso 'priorita' perché non presente nel modello SecurityControl
+    list_display = ('control_id', 'area', 'descrizione', 'riferimento_iso')
+    
+    # Rimosso 'priorita' dai filtri
+    list_filter = ('area',)
+    
+    search_fields = ('control_id', 'descrizione', 'supporto_verifica', 'riferimento_iso')
+    ordering = ('control_id',)
+    
+    fieldsets = (
+        ('Identificazione', {
+            'fields': ('control_id', 'area', 'riferimento_iso')
+        }),
+        ('Contenuto del Controllo', {
+            'fields': ('descrizione', 'supporto_verifica')
+        }),
+    )
+
+@admin.register(SecurityAudit)
+class SecurityAuditAdmin(admin.ModelAdmin):
+    list_display = ('id', 'azienda', 'data_creazione', 'completato', 'creato_da')
+    list_filter = ('completato', 'azienda')
+
+@admin.register(SecurityResponse)
+class SecurityResponseAdmin(admin.ModelAdmin):
+    # Usiamo una funzione per mostrare l'ID del controllo nella lista
+    list_display = ('audit', 'get_control_id', 'esito')
+    list_filter = ('esito', 'audit__azienda')
+
+    def get_control_id(self, obj):
+        return obj.controllo.control_id
+    get_control_id.short_description = 'ID Controllo'

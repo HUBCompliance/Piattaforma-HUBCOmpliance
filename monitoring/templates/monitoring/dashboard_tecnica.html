@@ -1,0 +1,130 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ titolo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ titolo_pagina }}</h1>
+        <span class="badge bg-primary p-2">
+            <i class="bi bi-building me-1"></i> {{ azienda.nome }}
+        </span>
+    </div>
+
+    {# --- SEZIONE 1: THREAT INTELLIGENCE (DEHASHED DATA) --- #}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 overflow-hidden">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0"><i class="bi bi-shield-exclamation me-2 text-warning"></i>{% translate "Analisi Esposizione Perimetro Esterno" %}</h5>
+                    <span class="badge bg-light text-dark">Powered by DeHashed API</span>
+                </div>
+                <div class="card-body bg-light">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center border-end">
+                            <div class="display-4 fw-bold {{ deashed_color }}">{{ leak_count }}</div>
+                            <div class="text-uppercase small fw-bold text-muted">{% translate "Leak Rilevati" %}</div>
+                        </div>
+                        <div class="col-md-6 px-4">
+                            <h6 class="fw-bold text-dark">{% translate "Dominio Monitorato" %}: <span class="text-primary">{{ dominio_monitorato }}</span></h6>
+                            <p class="text-muted small mb-0">
+                                {% translate "L'analisi ha scansionato database pubblici di data breach alla ricerca di credenziali aziendali compromesse." %}
+                                <br>
+                                <strong>{% translate "Rischio Corrente" %}:</strong> 
+                                <span class="{{ deashed_color }} fw-bold">{{ rischio_esposizione }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            {% if leak_count > 0 %}
+                                <a href="{% url 'csirt_notifica_create' %}" class="btn btn-outline-danger btn-sm w-100 mb-2">
+                                    <i class="bi bi-megaphone me-1"></i> {% translate "Segnala Incidente" %}
+                                </a>
+                            {% endif %}
+                            <button class="btn btn-secondary btn-sm w-100" onclick="window.location.reload();">
+                                <i class="bi bi-arrow-repeat me-1"></i> {% translate "Aggiorna Scansione" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% if leak_count > 20 %}
+                <div class="card-footer bg-danger-subtle border-0">
+                    <small class="text-danger fw-bold">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> 
+                        {% translate "Attenzione: L'alto numero di leak richiede un cambio password massivo forzato (NIS2 Art. 21)." %}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# --- SEZIONE 2: SEMAFORO TECNICO (PROMETHEUS DATA) --- #}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 text-primary"><i class="bi bi-cpu me-2"></i>{% translate "Stato Asset Infrastrutturali" %}</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% translate "Asset / Server" %}</th>
+                            <th class="text-center">{% translate "Stato Uptime" %}</th>
+                            <th class="text-center">{% translate "Carico CPU" %}</th>
+                            <th class="text-center">{% translate "Soglia Allarme" %}</th>
+                            <th>{% translate "Azione" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in tabella_semaforo %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ item.asset.nome }}</div>
+                                <div class="small text-muted">{{ item.asset.indirizzo_ip }}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {{ item.color }} p-2 w-75">
+                                    {% if item.is_online %}ONLINE{% else %}OFFLINE{% endif %}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if item.cpu_usage > item.asset.soglia_allarme_cpu %}bg-danger{% else %}bg-success{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ item.cpu_usage }}%;" 
+                                         aria-valuenow="{{ item.cpu_usage }}" aria-valuemin="0" aria-valuemax="100">
+                                        {{ item.cpu_usage }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ item.asset.soglia_allarme_cpu }}%</span>
+                            </td>
+                            <td>
+                                <a href="#" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-search"></i> {% translate "Dettagli" %}
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                {% translate "Nessun asset censito per il monitoraggio." %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card { border-radius: 12px; }
+    .display-4 { line-height: 1; }
+    .progress { border-radius: 10px; background-color: #e9ecef; }
+</style>
+{% endblock %}

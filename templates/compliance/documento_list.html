@@ -15,75 +15,104 @@
         </nav>
 
         <div class="card shadow-sm mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{% translate "Repository Documenti Aziendali" %}</h5>
-                <a href="{% url 'documento_create' %}" class="btn btn-primary btn-sm">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white py-3">
+                <h5 class="mb-0 fw-bold text-primary">
+                    <i class="bi bi-folder-fill me-2"></i>{% translate "Repository Documenti Aziendali" %}
+                </h5>
+                <a href="{% url 'documento_create' %}" class="btn btn-primary btn-sm shadow-sm">
                     <i class="bi bi-plus-circle me-1"></i> {% translate "Aggiungi Documento" %}
                 </a>
             </div>
             <div class="card-body">
-                <p>{% translate "Archivio centrale delle tue informative, nomine e policy." %}</p>
+                <p class="text-muted small">{% translate "Archivio centrale delle tue informative, nomine, policy e verbali di audit." %}</p>
                 
                 {% if not categorie_aziendali %}
-                    <p class="text-muted text-center">{% translate "Nessun documento caricato. Clicca 'Aggiungi Documento' per iniziare." %}</p>
+                    <div class="text-center py-5">
+                        <i class="bi bi-archive text-muted" style="font-size: 3rem;"></i>
+                        <p class="text-muted mt-3">{% translate "Nessun documento caricato. Clicca 'Aggiungi Documento' per iniziare." %}</p>
+                    </div>
                 {% endif %}
 
                 {% for categoria in categorie_aziendali %}
-                    <h6 class="mt-3">{{ categoria.nome }}</h6>
-                    <ul class="list-group">
-                        {% for doc in categoria.documentoaziendale_set.all %}
-                            {% if doc.azienda == request.user.azienda %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>
-                                    <i class="bi bi-file-earmark-text-fill me-2"></i>
-                                    <a href="{% url 'documento_dettaglio' doc.pk %}">{{ doc.nome }}</a>
-                                    {% with versione_corrente=doc.versione_corrente %}
-                                        {% if versione_corrente %}
-                                            <br><small class="text-muted">{% translate "Versione del" %}: {{ versione_corrente.data_caricamento|date:"d/m/Y" }}</small>
+                    <div class="categoria-group mb-4">
+                        <h6 class="text-uppercase fw-bold text-secondary small border-bottom pb-2 mt-4" style="letter-spacing: 1px;">
+                            {{ categoria.nome }}
+                        </h6>
+                        <ul class="list-group shadow-sm">
+                            {# CICLO DOCUMENTI: Visualizza i documenti filtrati dalla View #}
+                            {% for doc in categoria.documentoaziendale_set.all %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                                    <span>
+                                        {# ICONA DINAMICA: Verde per Audit, Blu per il resto #}
+                                        {% if "Audit" in doc.nome or categoria.nome == "Audit e Verbali" %}
+                                            <i class="bi bi-shield-check text-success me-2 fs-5"></i>
                                         {% else %}
-                                            <br><small class="text-danger">({% translate "Nessuna versione caricata" %})</small>
+                                            <i class="bi bi-file-earmark-text-fill text-primary me-2 fs-5"></i>
                                         {% endif %}
-                                    {% endwith %}
-                                </span>
-                                <div>
-                                    {% if categoria.nome == "Attestati di Formazione" %}
-                                        <a href="{% url 'documento_dettaglio' doc.pk %}" class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-eye-fill me-1"></i> {% translate "Vedi Dettagli" %}
+                                        
+                                        <a href="{% url 'documento_dettaglio' doc.pk %}" class="text-decoration-none fw-bold text-dark">
+                                            {{ doc.nome }}
                                         </a>
-                                    {% else %}
-                                        <a href="{% url 'versione_create' doc.pk %}" class="btn btn-success btn-sm">
-                                            <i class="bi bi-upload me-1"></i> {% translate "Carica Nuova Versione" %}
+
+                                        {% with versione_corrente=doc.versione_corrente %}
+                                            {% if versione_corrente %}
+                                                <br>
+                                                <small class="text-muted">
+                                                    <i class="bi bi-clock-history me-1"></i>
+                                                    {% translate "Versione del" %}: {{ versione_corrente.data_caricamento|date:"d/m/Y H:i" }}
+                                                </small>
+                                            {% else %}
+                                                <br><small class="text-danger">({% translate "Nessun file caricato" %})</small>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </span>
+                                    
+                                    <div class="btn-group">
+                                        <a href="{% url 'documento_dettaglio' doc.pk %}" class="btn btn-outline-primary btn-sm px-3">
+                                            <i class="bi bi-eye-fill"></i>
                                         </a>
-                                    {% endif %}
+                                        
+                                        {# BLOCCO CARICAMENTO MANUALE per Audit e Formazione #}
+                                        {% if categoria.nome != "Audit e Verbali" and categoria.nome != "Attestati di Formazione" %}
+                                            <a href="{% url 'versione_create' doc.pk %}" class="btn btn-outline-success btn-sm px-3">
+                                                <i class="bi bi-upload"></i>
+                                            </a>
+                                        {% endif %}
                                     </div>
-                            </li>
-                            {% endif %}
-                        {% endfor %}
-                    </ul>
+                                </li>
+                            {% empty %}
+                                <li class="list-group-item text-muted small italic bg-light py-3">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    {% translate "Nessun documento presente in questa categoria." %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 {% endfor %}
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">{% translate "Template (Modelli)" %}</h5>
+        <div class="card shadow-sm mb-4 border-0">
+            <div class="card-header bg-light py-3">
+                <h6 class="mb-0 fw-bold text-secondary small text-uppercase">
+                    <i class="bi bi-file-earmark-zip me-2"></i>{% translate "Modelli di Documentazione (Template)" %}
+                </h6>
             </div>
             <div class="card-body">
-                <p>{% translate "Usa questi modelli pre-approvati per creare i tuoi documenti." %}</p>
-                <ul class="list-group">
+                <ul class="list-group list-group-flush">
                     {% for template in templates_list %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <span>
-                                <i class="bi bi-file-earmark-zip-fill me-2"></i>
+                                <i class="bi bi-file-earmark-pdf me-2 text-warning"></i>
                                 {{ template.nome }}
-                                <br><small class="text-muted">{{ template.categoria.nome }} - {{ template.descrizione }}</small>
+                                <br><small class="text-muted">{{ template.categoria.nome }}</small>
                             </span>
-                            <a href="{% url 'download_template' template.pk %}" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-download me-1"></i> {% translate "Scarica" %}
+                            <a href="{% url 'download_template' template.pk %}" class="btn btn-light btn-sm border shadow-sm">
+                                <i class="bi bi-download"></i>
                             </a>
                         </li>
                     {% empty %}
-                        <li class="list-group-item text-center text-muted">{% translate "Nessun template disponibile al momento." %}</li>
+                        <li class="list-group-item text-muted small border-0">{% translate "Nessun template disponibile." %}</li>
                     {% endfor %}
                 </ul>
             </div>
@@ -91,4 +120,10 @@
 
     </div>
 </div>
+
+<style>
+    .list-group-item:hover { background-color: #fcfcfc; border-left: 4px solid #0d6efd; transition: 0.1s; }
+    .btn-group .btn { transition: all 0.2s; }
+    .btn-group .btn:hover { transform: translateY(-1px); }
+</style>
 {% endblock %}

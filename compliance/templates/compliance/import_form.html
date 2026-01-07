@@ -1,0 +1,21 @@
+{% extends "base_studente.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-black">
+            <h5 class="mb-0">Importa Framework di Controllo</h5>
+        </div>
+        <div class="card-body">
+            <p>Carica un file Excel (.xlsx) con le colonne: <strong>control_id, area, descrizione, supporto_verifica, riferimento_iso</strong>.</p>
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required>
+                </div>
+                <button type="submit" class="btn btn-success">Inizia Importazione</button>
+                <a href="{% url 'dashboard_compliance' %}" class="btn btn-link">Annulla</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page { size: a4 portrait; margin: 1cm; }
+        body { font-family: Helvetica, Arial, sans-serif; color: #333; font-size: 10pt; }
+        .header { text-align: center; border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 20px; }
+        .azienda-nome { font-size: 18pt; font-weight: bold; color: #0d6efd; }
+        .info-table { width: 100%; margin-bottom: 20px; border-collapse: collapse; }
+        .info-table td { padding: 5px; border-bottom: 1px solid #eee; }
+        .categoria-titolo { background-color: #f8f9fa; padding: 8px; font-weight: bold; border-left: 4px solid #0d6efd; margin-top: 20px; }
+        .domanda-box { padding: 10px; border-bottom: 1px solid #eee; }
+        .esito-si { color: green; font-weight: bold; }
+        .esito-no { color: red; font-weight: bold; }
+        .nota { font-style: italic; color: #666; margin-top: 5px; font-size: 9pt; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="azienda-nome">{{ azienda.nome }}</div>
+        <div>VERBALE DI AUDIT COMPLIANCE GDPR</div>
+    </div>
+
+    <table class="info-table">
+        <tr>
+            <td><strong>Data Sessione:</strong> {{ sessione.data_creazione|date:"d/m/Y H:i" }}</td>
+            <td><strong>Rating Conformità:</strong> {{ percentuale }}%</td>
+        </tr>
+        <tr>
+            <td><strong>Creato da:</strong> {{ sessione.creato_da.get_full_name|default:sessione.creato_da.username }}</td>
+            <td><strong>Data Export:</strong> {{ data_export|date:"d/m/Y" }}</td>
+        </tr>
+    </table>
+
+    {% for item in audit_data %}
+        <div class="categoria-titolo">{{ item.categoria.nome }}</div>
+        {% for r in item.risposte %}
+            <div class="domanda-box">
+                <div><strong>{{ r.domanda.testo }}</strong></div>
+                <div>Esito: 
+                    {% if r.risposta %}
+                        <span class="esito-si">CONFORME (SÌ)</span>
+                    {% else %}
+                        <span class="esito-no">NON CONFORME (NO)</span>
+                    {% endif %}
+                </div>
+                {% if r.note %}
+                    <div class="nota">Osservazioni: {{ r.note }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <div style="margin-top: 50px; text-align: right;">
+        <p>__________________________</p>
+        <p>Firma del Responsabile</p>
+    </div>
+</body>
+</html>
