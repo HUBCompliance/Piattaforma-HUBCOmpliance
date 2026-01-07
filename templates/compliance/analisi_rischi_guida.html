@@ -1,0 +1,105 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}
+    {{ titolo_pagina|default:_('Guida Analisi Rischi') }}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-1">{{ titolo_pagina|default:_('Guida Analisi Rischi') }}</h1>
+            <p class="text-muted mb-0">
+                {% translate "Indicazioni pratiche per impostare un'analisi dei rischi coerente con il tuo contesto aziendale." %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0"><i class="bi bi-clipboard-check me-2"></i>{% translate "1. Preparazione" %}</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>{% translate "Definisci perimetro, processi e unità organizzative coinvolte." %}</li>
+                        <li>{% translate "Raccogli documentazione esistente (asset, procedure, audit)." %}</li>
+                        <li>{% translate "Identifica owner e referenti per ogni area." %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0"><i class="bi bi-diagram-3 me-2"></i>{% translate "2. Mappatura Asset" %}</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>{% translate "Censisci asset informativi, fisici e applicativi." %}</li>
+                        <li>{% translate "Associa dati personali o informazioni critiche." %}</li>
+                        <li>{% translate "Valuta valore e dipendenze tra asset." %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0"><i class="bi bi-exclamation-triangle me-2"></i>{% translate "3. Minacce e Vulnerabilità" %}</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>{% translate "Individua scenari di minaccia rilevanti (interni/esterni)." %}</li>
+                        <li>{% translate "Verifica vulnerabilità tecniche, organizzative e procedurali." %}</li>
+                        <li>{% translate "Stima probabilità di accadimento per scenario." %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0"><i class="bi bi-graph-up-arrow me-2"></i>{% translate "4. Impatto e Priorità" %}</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>{% translate "Valuta impatti su continuità, reputazione, conformità." %}</li>
+                        <li>{% translate "Assegna livelli di rischio e priorità di trattamento." %}</li>
+                        <li>{% translate "Documenta criteri e motivazioni delle scelte." %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0"><i class="bi bi-shield-check me-2"></i>{% translate "5. Trattamento e Monitoraggio" %}</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="mb-0">
+                                <li>{% translate "Definisci misure di mitigazione e piani di miglioramento." %}</li>
+                                <li>{% translate "Assegna responsabilità e tempistiche di attuazione." %}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="mb-0">
+                                <li>{% translate "Monitora KPI e aggiorna l'analisi periodicamente." %}</li>
+                                <li>{% translate "Integra gli esiti con audit e controlli interni." %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
