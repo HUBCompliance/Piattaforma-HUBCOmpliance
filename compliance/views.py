@@ -507,7 +507,14 @@ def trattamento_create(request):
         form_instance = TrattamentoForm(request.POST) 
         if 'generate_ai_suggestions' in request.POST:
             try:
-                prompt = f"Genera finalità di trattamento e misure di sicurezza per un registro di trattamenti per {request.POST.get('nome_trattamento', 'un nuovo processo')}."
+                categorie_dati = request.POST.get('categorie_dati_input', '').strip()
+                soggetti_interessati = request.POST.get('soggetti_interessati_input', '').strip()
+                prompt = (
+                    "Genera finalità di trattamento e misure di sicurezza per un registro di trattamenti "
+                    f"per {request.POST.get('nome_trattamento', 'un nuovo processo')}. "
+                    f"Categorie di dati: {categorie_dati or 'non specificate'}. "
+                    f"Soggetti interessati: {soggetti_interessati or 'non specificati'}."
+                )
                 risposta_ai = generate_gemini_response(prompt)
                 form = TrattamentoForm(initial=request.POST.dict())
             except Exception as e:
