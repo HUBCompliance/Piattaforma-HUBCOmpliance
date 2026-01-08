@@ -1,11 +1,12 @@
 from django import forms
+import re
 from django.db.models import Q
 from django.forms import inlineformset_factory
 from django.utils.translation import gettext_lazy as _
 
 # Importa tutti i modelli da compliance.models (modello 'NotificaIncidente' è aggiornato)
 from .models import (
-    Trattamento, DomandaChecklist, RispostaChecklist,
+    CategoriaDati, SoggettoInteressato, Trattamento, DomandaChecklist, RispostaChecklist,
     TemplateDocumento, CategoriaDocumento, DocumentoAziendale, VersioneDocumento,
     Incidente, RichiestaInteressato,
     AuditCategoria, AuditDomanda, AuditRisposta, AuditSession,
@@ -21,6 +22,19 @@ from user_auth.models import CustomUser as User, Azienda
 # ==============================================================================
 
 class TrattamentoForm(forms.ModelForm):
+    categorie_dati_input = forms.CharField(
+        required=False,
+        label=_("Categorie di Dati"),
+        help_text=_("Inserisci categorie separate da virgola o a capo."),
+        widget=forms.Textarea(attrs={'rows': 3}),
+    )
+    soggetti_interessati_input = forms.CharField(
+        required=False,
+        label=_("Soggetti Interessati"),
+        help_text=_("Inserisci soggetti interessati separati da virgola o a capo."),
+        widget=forms.Textarea(attrs={'rows': 3}),
+    )
+
     class Meta:
         model = Trattamento
         exclude = ['azienda', 'creato_da', 'livello_rischio', 'punteggio_rischio_calcolato', 'dpia_necessaria']
@@ -32,6 +46,61 @@ class TrattamentoForm(forms.ModelForm):
             'destinatari_esterni': forms.Textarea(attrs={'rows': 3}),
             'misure_sicurezza': forms.Textarea(attrs={'rows': 4}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.pop('categorie_dati', None)
+        self.fields.pop('soggetti_interessati', None)
+
+        ordered_fields = [
+            'nome_trattamento',
+            'tipo_ruolo',
+            'per_conto_di',
+            'finalita',
+            'categorie_dati_input',
+            'soggetti_interessati_input',
+            'destinatari_interni',
+            'destinatari_esterni',
+            'tempo_conservazione',
+            'misure_sicurezza',
+        ]
+        self.order_fields(ordered_fields)
+
+        if self.instance.pk:
+            categorie = self.instance.categorie_dati.values_list('nome', flat=True)
+            soggetti = self.instance.soggetti_interessati.values_list('nome', flat=True)
+            self.fields['categorie_dati_input'].initial = ", ".join(categorie)
+            self.fields['soggetti_interessati_input'].initial = ", ".join(soggetti)
+
+    def _parse_items(self, value):
+        if not value:
+            return []
+        items = [item.strip() for item in re.split(r'[\n,]+', value) if item.strip()]
+        return list(dict.fromkeys(items))
+
+    def _update_m2m_from_input(self, instance):
+        categorie = self._parse_items(self.cleaned_data.get('categorie_dati_input'))
+        soggetti = self._parse_items(self.cleaned_data.get('soggetti_interessati_input'))
+
+        categoria_objs = [
+            CategoriaDati.objects.get_or_create(nome=nome)[0] for nome in categorie
+        ]
+        soggetto_objs = [
+            SoggettoInteressato.objects.get_or_create(nome=nome)[0] for nome in soggetti
+        ]
+
+        instance.categorie_dati.set(categoria_objs)
+        instance.soggetti_interessati.set(soggetto_objs)
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        if commit:
+            self._update_m2m_from_input(instance)
+        return instance
+
+    def save_m2m(self):
+        super().save_m2m()
+        self._update_m2m_from_input(self.instance)
 
 # ==============================================================================
 # 2. FORMS PER LA GESTIONE DOCUMENTALE
