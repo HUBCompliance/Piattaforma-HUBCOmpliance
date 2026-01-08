@@ -566,7 +566,7 @@ def checklist_trattamento(request, pk):
 def export_trattamenti_excel(request):
     azienda = get_azienda_current(request)
     if not azienda: return redirect('login')
-    trattamenti = Trattamento.objects.filter(azienda=azienda).prefetch_related('categorie_dati', 'soggetti_interessati', 'destinatari_esterni')
+    trattamenti = Trattamento.objects.filter(azienda=azienda).prefetch_related('categorie_dati', 'soggetti_interessati')
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="Registro_Trattamenti_{azienda.nome}.xlsx"'
     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Registro"
@@ -575,7 +575,7 @@ def export_trattamenti_excel(request):
     for col, title in enumerate(headers, 1):
         c = ws.cell(row=1, column=col); c.value = title; c.font = font; c.fill = fill
     for r, t in enumerate(trattamenti, 2):
-        row = [t.id, t.nome_trattamento, t.get_tipo_ruolo_display(), t.per_conto_di or "-", t.finalita, ", ".join([str(x) for x in t.categorie_dati.all()]), ", ".join([str(x) for x in t.soggetti_interessati.all()]), t.destinatari_interni, ", ".join([str(x) for x in t.destinatari_esterni.all()]), t.tempo_conservazione, t.misure_sicurezza, t.get_livello_rischio_display(), "Sì" if t.dpia_necessaria else "No"]
+        row = [t.id, t.nome_trattamento, t.get_tipo_ruolo_display(), t.per_conto_di or "-", t.finalita, ", ".join([str(x) for x in t.categorie_dati.all()]), ", ".join([str(x) for x in t.soggetti_interessati.all()]), t.destinatari_interni, t.destinatari_esterni, t.tempo_conservazione, t.misure_sicurezza, t.get_livello_rischio_display(), "Sì" if t.dpia_necessaria else "No"]
         for c, val in enumerate(row, 1): ws.cell(row=r, column=c).value = str(val)
     wb.save(response); return response
 
