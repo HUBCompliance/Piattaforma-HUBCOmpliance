@@ -26,7 +26,7 @@ from .models import (
   AuditCategoria, AuditDomanda, AuditSession, AuditRisposta,
     Incidente, ReferenteCSIRT, ContattoInternoCSIRT, NotificaIncidente, 
     SecurityAudit, SecurityControl, SecurityResponse,
-    Compito, Trattamento, DocumentoAziendale, Asset, Software,AllegatoNotifica
+    Compito, DomandaChecklist, Trattamento, DocumentoAziendale, Asset, Software,AllegatoNotifica
 )
 from .forms import (
     TrattamentoForm, DocumentoAziendaleForm, VersioneDocumentoForm,
@@ -507,7 +507,14 @@ def trattamento_create(request):
         form_instance = TrattamentoForm(request.POST) 
         if 'generate_ai_suggestions' in request.POST:
             try:
-                prompt = f"Genera finalità di trattamento e misure di sicurezza per un registro di trattamenti per {request.POST.get('nome_trattamento', 'un nuovo processo')}."
+                categorie_dati = request.POST.get('categorie_dati_input', '').strip()
+                soggetti_interessati = request.POST.get('soggetti_interessati_input', '').strip()
+                prompt = (
+                    "Genera finalità di trattamento e misure di sicurezza per un registro di trattamenti "
+                    f"per {request.POST.get('nome_trattamento', 'un nuovo processo')}. "
+                    f"Categorie di dati: {categorie_dati or 'non specificate'}. "
+                    f"Soggetti interessati: {soggetti_interessati or 'non specificati'}."
+                )
                 risposta_ai = generate_gemini_response(prompt)
                 form = TrattamentoForm(initial=request.POST.dict())
             except Exception as e:
@@ -559,7 +566,7 @@ def checklist_trattamento(request, pk):
 def export_trattamenti_excel(request):
     azienda = get_azienda_current(request)
     if not azienda: return redirect('login')
-    trattamenti = Trattamento.objects.filter(azienda=azienda).prefetch_related('categorie_dati', 'soggetti_interessati', 'destinatari_esterni')
+    trattamenti = Trattamento.objects.filter(azienda=azienda).prefetch_related('categorie_dati', 'soggetti_interessati')
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="Registro_Trattamenti_{azienda.nome}.xlsx"'
     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Registro"
@@ -568,7 +575,7 @@ def export_trattamenti_excel(request):
     for col, title in enumerate(headers, 1):
         c = ws.cell(row=1, column=col); c.value = title; c.font = font; c.fill = fill
     for r, t in enumerate(trattamenti, 2):
-        row = [t.id, t.nome_trattamento, t.get_tipo_ruolo_display(), t.per_conto_di or "-", t.finalita, ", ".join([str(x) for x in t.categorie_dati.all()]), ", ".join([str(x) for x in t.soggetti_interessati.all()]), t.destinatari_interni, ", ".join([str(x) for x in t.destinatari_esterni.all()]), t.tempo_conservazione, t.misure_sicurezza, t.get_livello_rischio_display(), "Sì" if t.dpia_necessaria else "No"]
+        row = [t.id, t.nome_trattamento, t.get_tipo_ruolo_display(), t.per_conto_di or "-", t.finalita, ", ".join([str(x) for x in t.categorie_dati.all()]), ", ".join([str(x) for x in t.soggetti_interessati.all()]), t.destinatari_interni, t.destinatari_esterni, t.tempo_conservazione, t.misure_sicurezza, t.livello_rischio, "Sì" if t.dpia_necessaria else "No"]
         for c, val in enumerate(row, 1): ws.cell(row=r, column=c).value = str(val)
     wb.save(response); return response
 
