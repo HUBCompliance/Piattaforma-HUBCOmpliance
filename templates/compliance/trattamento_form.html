@@ -53,12 +53,9 @@
                                     </small>
                                 </div>
                                 
-                            {% elif field.name == 'categorie_dati_input' or field.name == 'soggetti_interessati_input' %}
+                            {% elif field.name == 'categorie_dati' or field.name == 'soggetti_interessati' %}
                                 <div class="border p-3 rounded bg-white">
                                     {{ field }}
-                                    {% if field.help_text %}
-                                        <small class="text-muted d-block mt-2">{{ field.help_text }}</small>
-                                    {% endif %}
                                 </div>
                             
                             {% else %}
