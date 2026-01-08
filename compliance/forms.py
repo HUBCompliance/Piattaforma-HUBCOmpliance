@@ -26,6 +26,10 @@ class TrattamentoForm(forms.ModelForm):
         exclude = ['azienda', 'creato_da', 'livello_rischio', 'punteggio_rischio_calcolato', 'dpia_necessaria']
         widgets = {
             'finalita': forms.Textarea(attrs={'rows': 3}),
+            'categorie_dati': forms.CheckboxSelectMultiple(),
+            'soggetti_interessati': forms.CheckboxSelectMultiple(),
+            'destinatari_interni': forms.Textarea(attrs={'rows': 3}),
+            'destinatari_esterni': forms.Textarea(attrs={'rows': 3}),
             'misure_sicurezza': forms.Textarea(attrs={'rows': 4}),
         }
 
