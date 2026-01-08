@@ -1,0 +1,85 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block title %}{% translate "Registro Trattamenti" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">{% translate "Registro Trattamenti" %}</h1>
+        <div>
+            <a href="{% url 'trattamento_create' %}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> {% translate "Nuovo Trattamento" %}
+            </a>
+            <a href="{% url 'export_trattamenti_excel' %}" class="btn btn-success me-2">
+                <i class="bi bi-file-earmark-excel"></i> {% translate "Esporta Excel" %}
+            </a>
+            <a href="{% url 'dashboard_compliance' %}" class="btn btn-outline-secondary">{% translate "Torna al Cruscotto" %}</a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle shadow-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>{% translate "Trattamento" %}</th>
+                    <th>{% translate "Ruolo" %}</th>
+                    <th>{% translate "Finalità" %}</th>
+                    <th>{% translate "Categorie Dati" %}</th>
+                    <th>{% translate "Soggetti Interessati" %}</th>
+                    <th>{% translate "Destinatari Interni" %}</th>
+                    <th>{% translate "Livello Rischio" %}</th>
+                    <th class="text-center">{% translate "DPIA" %}</th>
+                    <th class="text-end">{% translate "Azioni" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in trattamenti %}
+                <tr>
+                    <td class="fw-bold">{{ t.nome_trattamento }}</td>
+                    <td>{{ t.get_tipo_ruolo_display }}</td>
+                    <td>{{ t.finalita|truncatechars:80 }}</td>
+                    <td>
+                        {% for categoria in t.categorie_dati.all %}
+                            <span class="badge bg-light text-dark border">{{ categoria.nome }}</span>
+                        {% empty %}
+                            <span class="text-muted">-</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% for soggetto in t.soggetti_interessati.all %}
+                            <span class="badge bg-light text-dark border">{{ soggetto.nome }}</span>
+                        {% empty %}
+                            <span class="text-muted">-</span>
+                        {% endfor %}
+                    </td>
+                    <td>{{ t.destinatari_interni|default:"-" }}</td>
+                    <td><span class="badge bg-secondary">{{ t.get_livello_rischio_display|default:t.livello_rischio }}</span></td>
+                    <td class="text-center">
+                        {% if t.dpia_necessaria %}
+                            <i class="bi bi-exclamation-octagon-fill text-danger fs-5" title="DPIA Richiesta"></i>
+                        {% else %}
+                            <i class="bi bi-check-circle text-muted" title="Non richiesta"></i>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <div class="btn-group shadow-sm border rounded">
+                            <a href="{% url 'trattamento_update' t.id %}" class="btn btn-sm btn-white" title="Modifica">
+                                <i class="bi bi-pencil-square text-secondary"></i>
+                            </a>
+                            <a href="{% url 'checklist_trattamento' t.id %}" class="btn btn-sm btn-white border-start" title="Checklist Rischio">
+                                <i class="bi bi-clipboard-check text-primary"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">{% translate "Nessun trattamento registrato." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
