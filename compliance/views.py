@@ -1343,6 +1343,7 @@ def csirt_dashboard(request):
     )
     
     notifiche_qs = NotificaIncidente.objects.filter(azienda=azienda)
+    notifiche_open_qs = notifiche_qs.exclude(stato='CHIUSA')
     contatti_qs = ContattoInternoCSIRT.objects.filter(azienda=azienda)
     ContattiFormSet = modelformset_factory(
         ContattoInternoCSIRT,
@@ -1383,7 +1384,7 @@ def csirt_dashboard(request):
     # 3. PREPARAZIONE CONTESTO
     context = {
         'referente_csirt': referente_csirt,
-        'notifiche': notifiche_qs.order_by("-data_incidente"),
+        'notifiche': notifiche_open_qs.order_by("-data_incidente"),
         'azienda': azienda,
         'titolo_pagina': _("Gestione Referente CSIRT (NIS2)"),
         'dati_grafico_stati_json': dati_grafico_stati_json, 
