@@ -3,6 +3,10 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 # Assicurati che i tuoi modelli siano importati correttamente
 from user_auth.models import CustomUser as User, Azienda, Consulente
+import uuid
+import string
+import random
+from django.conf import settings
 
 # ==============================================================================
 # MODELLI BASE (Categorie, Soggetti)
@@ -518,3 +522,178 @@ class SecurityResponse(models.Model):
         unique_together = ('audit', 'controllo')
         verbose_name = "Risposta Security"
         verbose_name_plural = "Risposte Security"
+        # Aggiungi questo in fondo a compliance/models.py
+
+class ImpostazioniSito(models.Model):
+    titolo_sito = models.CharField(max_length=200, default="HUB Compliance Portal")
+    email_contatto = models.EmailField(blank=True)
+    logo = models.ImageField(upload_to='site_config/', blank=True, null=True)
+    manutenzione_attiva = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = "Impostazioni Sito"
+        verbose_name_plural = "Impostazioni Sito"
+
+    def __str__(self):
+        return self.titolo_sito
+
+class DomandaFornitore(models.Model):
+    RANGE_CHOICES = [
+        ('Range_1', 'Sì (1) / Parziale (0.5) / No (0)'),
+        ('Range_2', 'Sì (1) / No (0)'),
+    ]
+
+    sezione = models.CharField(max_length=255)
+    codice = models.CharField(max_length=50)
+    tema = models.CharField(max_length=255)
+    domanda = models.TextField()
+    
+    # Riferimenti Normativi
+    iso_27001 = models.CharField(max_length=100, blank=True, null=True)
+    fncs = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Pesi (fondamentali per il calcolo dell'algoritmo CLUSIT)
+    peso_tema = models.FloatField(default=1.0)
+    peso_domanda = models.FloatField(default=1.0)
+    tipo_range = models.CharField(max_length=10, choices=RANGE_CHOICES, default='Range_1')
+    MACRO_CATEGORIE = [
+        ('GESTIONE', 'Gestione della Sicurezza'),
+        ('IT', 'Sicurezza IT'),
+        ('FISICA', 'Sicurezza Fisica'),
+    ]
+    macro_categoria = models.CharField(max_length=20, choices=MACRO_CATEGORIE, default='IT')
+
+    class Meta:
+        verbose_name = "Domanda Questionario Fornitori"
+        verbose_name_plural = "Domande Questionario Fornitori"
+
+    def __str__(self):
+        return f"{self.codice} - {self.tema}"
+
+class RispostaQuestionarioFornitore(models.Model):
+    fornitore = models.ForeignKey('Fornitore', on_delete=models.CASCADE, related_name='risposte_clusit', null=True)
+    domanda = models.ForeignKey(DomandaFornitore, on_delete=models.CASCADE)
+    valore_risposta = models.FloatField(default=0.0) # Salveremo 1, 0.5 o 0
+    note = models.TextField(blank=True, null=True)
+    data_valutazione = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('fornitore', 'domanda') # Una risposta per domanda per ogni fornitore
+class Fornitore(models.Model):
+    """
+    Rappresenta l'anagrafica di un fornitore esterno che deve 
+    essere censito e valutato.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    azienda_cliente = models.ForeignKey(Azienda, on_delete=models.CASCADE, related_name='fornitori_censiti')
+    ragione_sociale = models.CharField(max_length=255)
+    email_contatto = models.EmailField(help_text="Email a cui inviare il link del portale")
+    servizio_fornito = models.CharField(max_length=255, help_text="es: Cloud Hosting, Consulenza, ecc.") # CORRETTO    
+    # Campi per il Portale Self-Service
+    access_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    stato_valutazione = models.CharField(
+        max_length=20, 
+        choices=[
+            ('DA_INVIARE', 'Da Inviare'),
+            ('INVIATO', 'Inviato al Fornitore'),
+            ('COMPILATO', 'Compilato dal Fornitore'),
+            ('REVISIONATO', 'Revisionato dal Consulente'),
+        ],
+        default='DA_INVIARE'
+    )
+    def get_compliance_score(self):
+        """
+        Calcola la percentuale di conformità basata sul questionario CLUSIT.
+        Formula: (Somma Punteggi Ottenuti / Numero Domande Risposte) * 100
+        """
+        domande = DomandaFornitore.objects.all()
+        if not domande.exists():
+            return 0
+
+        risposte_map = {r.domanda_id: r for r in self.risposte_clusit.all()}
+        totale_max = 0
+        totale_ottenuto = 0
+        for domanda in domande:
+            max_pesato = 1.0 * domanda.peso_domanda * domanda.peso_tema
+            totale_max += max_pesato
+            risposta = risposte_map.get(domanda.id)
+            if risposta:
+                totale_ottenuto += risposta.valore_risposta * domanda.peso_domanda * domanda.peso_tema
+
+        if totale_max == 0:
+            return 0
+        percentuale = (totale_ottenuto / totale_max) * 100
+        return round(percentuale, 1)
+
+    def get_status_color(self):
+        """Restituisce una classe Bootstrap in base al punteggio"""
+        score = self.get_compliance_score()
+        if score >= 80: return "success"  # Verde
+        if score >= 50: return "warning"  # Giallo
+        return "danger"                  # Rosso
+    data_creazione = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Fornitore Esterno"
+        verbose_name_plural = "Fornitori Esterni"
+
+    def __str__(self):
+        return f"{self.ragione_sociale} ({self.azienda_cliente.nome})"
+
+class AllegatoFornitore(models.Model):
+    """
+    Per permettere al fornitore di caricare Certificazioni (ISO 27001, SOC2, ecc.)
+    """
+    fornitore = models.ForeignKey(Fornitore, on_delete=models.CASCADE, related_name='certificazioni')
+    file = models.FileField(upload_to='fornitori/certificazioni/')
+    descrizione = models.CharField(max_length=255)
+    data_caricamento = models.DateTimeField(auto_now_add=True)        
+def generate_ticket_code():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+
+class SegnalazioneWhistleblowing(models.Model):
+    azienda = models.ForeignKey('user_auth.Azienda', on_delete=models.CASCADE)
+    codice_ticket = models.CharField(max_length=10, default=generate_ticket_code, unique=True)
+    
+    TIPO_VIOLAZIONE = [
+        ('PRIVACY', 'Violazione Dati / GDPR'),
+        ('CORRUZIONE', 'Corruzione / Frode'),
+        ('SICUREZZA', 'Sicurezza sul lavoro'),
+        ('ALTRO', 'Altro illecito'),
+    ]
+    categoria = models.CharField(max_length=50, choices=TIPO_VIOLAZIONE)
+    oggetto = models.CharField(max_length=255)
+    descrizione = models.TextField()
+    
+    # Anonimato: questi campi sono opzionali
+    nome_segnalante = models.CharField(max_length=100, blank=True, null=True, default="Anonimo")
+    email_contatto = models.EmailField(blank=True, null=True)
+    
+    STATO = [
+        ('APERTA', 'In attesa di revisione'),
+        ('ISTRUTTORIA', 'In corso di valutazione'),
+        ('CHIUSA', 'Archiviata/Risolta'),
+    ]
+    stato = models.CharField(max_length=20, choices=STATO, default='APERTA')
+    data_invio = models.DateTimeField(auto_now_add=True)
+    risposta_consulente = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Segnalazione {self.codice_ticket} - {self.azienda.nome}"
+
+
+class AllegatoWhistleblowing(models.Model):
+    segnalazione = models.ForeignKey(SegnalazioneWhistleblowing, on_delete=models.CASCADE, related_name='allegati')
+    file = models.FileField(upload_to='whistleblowing/allegati/%Y/%m/%d/')
+    data_caricamento = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Allegato per {self.segnalazione.codice_ticket}"
+class ConfigurazioneWhistleblowing(models.Model):
+    azienda = models.OneToOneField('user_auth.Azienda', on_delete=models.CASCADE, related_name='wb_config')
+    nome_pacchetto = models.CharField(max_length=100, default="Pacchetto Whistleblowing Standard")
+    data_attivazione = models.DateField(auto_now_add=True)
+    attivo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Config WB - {self.azienda.nome}"

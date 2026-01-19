@@ -1,0 +1,183 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+{% load compliance_extras %}
+
+{% block content %}
+<div class="container mt-4">
+    {# --- INTESTAZIONE --- #}
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h2 class="text-primary mb-0">
+                <i class="bi bi-clipboard-check-fill me-2"></i>{% translate "Questionario Valutazione Fornitore" %}
+            </h2>
+            <p class="text-muted">{% translate "Framework CLUSIT: Analisi dei controlli di sicurezza per" %} <strong>{{ fornitore.ragione_sociale }}</strong></p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <span class="badge bg-info text-dark p-2 shadow-sm">
+                <i class="bi bi-info-circle me-1"></i> {{ domande_per_area|total_questions }} {% translate "Quesiti Totali" %}
+            </span>
+        </div>
+    </div>
+
+    <form method="post" action="{% url 'compliance:salva_risposte_fornitori' fornitore.id %}">
+        {% csrf_token %}
+
+        <div class="accordion shadow-sm" id="accordionFramework">
+            {% for area_nome, domande in domande_per_area.items %}
+            {% if domande.exists %}
+            <div class="accordion-item border-0 mb-3 shadow-sm">
+                <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} bg-primary text-white" 
+                            type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#collapse{{ forloop.counter }}">
+                        <i class="bi bi-shield-lock-fill me-2"></i> 
+                        <span class="fw-bold">{{ area_nome|upper }}</span>
+                        <span class="badge bg-white text-primary ms-auto me-3">{{ domande.count }}</span>
+                    </button>
+                </h2>
+                
+                <div id="collapse{{ forloop.counter }}" 
+                     class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+                     data-bs-parent="#accordionFramework">
+                    <div class="accordion-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 80px;">{% translate "Codice" %}</th>
+                                        <th>{% translate "Quesito e Riferimenti" %}</th>
+                                        <th style="width: 220px;">{% translate "Risposta" %}</th>
+                                        <th style="width: 200px;">{% translate "Note" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for d in domande %}
+                                        {# --- SEPARATORE DI TEMA --- #}
+                                        {% ifchanged d.tema %}
+                                        <tr class="table-secondary">
+                                            <td colspan="4" class="py-2 px-3">
+                                                <small class="fw-bold text-uppercase text-primary">
+                                                    <i class="bi bi-tag-fill me-1"></i> {% translate "Ambito" %}: {{ d.tema|default:"Generale" }}
+                                                </small>
+                                            </td>
+                                        </tr>
+                                        {% endifchanged %}
+
+                                        {# --- RIGA DOMANDA --- #}
+                                        <tr>
+                                            <td class="text-center">
+                                                <span class="badge bg-light text-dark border">{{ d.codice }}</span>
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold text-dark mb-1">{{ d.domanda }}</div>
+                                                <div class="d-flex gap-2 mt-1">
+                                                    {% if d.iso_27001 %}
+                                                        <span class="badge rounded-pill bg-outline-secondary border text-muted fw-normal" style="font-size: 0.7rem;">
+                                                            ISO 27001: {{ d.iso_27001 }}
+                                                        </span>
+                                                    {% endif %}
+                                                    {% if d.fncs %}
+                                                        <span class="badge rounded-pill bg-outline-secondary border text-muted fw-normal" style="font-size: 0.7rem;">
+                                                            FNCS: {{ d.fncs }}
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm w-100" role="group">
+                                                    <input type="radio" class="btn-check" name="risposta_{{ d.id }}" id="si_{{ d.id }}" value="1.0" 
+                                                           {% if mappa_risposte|get_item:d.id == 1.0 %}checked{% endif %}>
+                                                    <label class="btn btn-outline-success" for="si_{{ d.id }}">Sì</label>
+
+                                                    <input type="radio" class="btn-check" name="risposta_{{ d.id }}" id="parz_{{ d.id }}" value="0.5" 
+                                                           {% if mappa_risposte|get_item:d.id == 0.5 %}checked{% endif %}>
+                                                    <label class="btn btn-outline-warning" for="parz_{{ d.id }}">Parz.</label>
+
+                                                    <input type="radio" class="btn-check" name="risposta_{{ d.id }}" id="no_{{ d.id }}" value="0" 
+                                                           {% if mappa_risposte|get_item:d.id == 0.0 %}checked{% endif %}>
+                                                    <label class="btn btn-outline-danger" for="no_{{ d.id }}">No</label>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <input type="text" name="note_{{ d.id }}" 
+                                                       value="{{ mappa_note|get_item:d.id|default:'' }}" 
+                                                       class="form-control form-control-sm" 
+                                                       placeholder="Note opzionali...">
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        {# --- FOOTER FISSO / BOTTONI --- #}
+        <div class="card-footer bg-white border shadow-sm rounded mt-4 p-3 sticky-bottom">
+            <div class="row align-items-center">
+                <div class="col-md-6 text-muted small">
+                    <i class="bi bi-info-circle me-1"></i> {% translate "I dati vengono salvati per il fornitore selezionato." %}
+                </div>
+                <div class="col-md-6 text-end">
+                    <a href="{% url 'compliance:lista_fornitori_azienda' %}?azienda_id={{ fornitore.azienda_cliente.pk }}" class="btn btn-light border me-2">
+                        {% translate "Annulla" %}
+                    </a>
+                    <button type="submit" class="btn btn-success px-5 shadow">
+                        <i class="bi bi-save me-1"></i> {% translate "Salva Valutazione" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Personalizzazione Accordion */
+    .accordion-button:not(.collapsed) {
+        background-color: #0d6efd;
+        color: white;
+        box-shadow: none;
+    }
+    .accordion-button::after {
+        filter: brightness(0) invert(1); /* Freccia bianca quando aperto */
+    }
+    .accordion-button.collapsed::after {
+        filter: none;
+    }
+    
+    /* Hover righe tabella */
+    .table-hover tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.03);
+    }
+    
+    /* Separatore temi */
+    .table-secondary {
+        background-color: #f8f9fa !important;
+        border-left: 4px solid #0d6efd;
+    }
+
+    /* Sticky footer */
+    .sticky-bottom {
+        position: sticky;
+        bottom: 20px;
+        z-index: 1020;
+    }
+</style>
+
+<script>
+    // Conferma l'uscita se ci sono modifiche non salvate
+    let formChanged = false;
+    document.querySelector('form').addEventListener('change', () => formChanged = true);
+    window.addEventListener('beforeunload', (e) => {
+        if (formChanged) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+    document.querySelector('button[type="submit"]').addEventListener('click', () => formChanged = false);
+</script>
+{% endblock %}

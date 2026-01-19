@@ -12,7 +12,7 @@
                 <h2 class="display-4 fw-bold text-success my-3">{{ attestato.punteggio_ottenuto|floatformat:0 }}%</h2>
                 <p>Il corso è ora segnato come completato.</p>
                 
-                <a href="{% url 'genera_attestato_pdf' attestato.id %}" class="btn btn-primary btn-lg mt-3">
+                <a href="{% url 'courses:genera_attestato_pdf' attestato.id %}" class="btn btn-primary btn-lg mt-3">
                     Scarica Attestato (PDF)
                 </a>
                 

@@ -1,19 +1,32 @@
 from django.urls import path
 from . import views
+app_name = 'compliance'
 
 urlpatterns = [
+    path('questionario-fornitori/<uuid:fornitore_id>/', views.lista_domande_fornitori, name='lista_domande_fornitori'),
+    path('salva-questionario-fornitori/<uuid:fornitore_id>/', views.salva_risposte_fornitori, name='salva_risposte_fornitori'),
+    path('risultati-fornitori/<uuid:fornitore_id>/', views.risultati_questionario_fornitori, name='risultati_fornitori'),
+    # compliance/urls.py
+    path('import-framework/', views.import_controls_excel, name='import_controls_excel'),
     # Consulente
     path('consulente/', views.dashboard_consulente, name='dashboard_consulente'), 
     path('consulente/add-referente/<int:azienda_id>/', views.consulente_add_referente, name='consulente_add_referente'),
     path('consulente/crea-compito/<int:azienda_id>/', views.consulente_crea_compito, name='consulente_crea_compito'),
     path('consulente/gestisci-moduli/<int:azienda_id>/', views.consulente_gestisci_moduli, name='consulente_gestisci_moduli'),
 
+    #wistleblowing
+    path('wb/check/', views.check_segnalazione_status, name='check_status'),
+    path('segnalazioni/', views.lista_segnalazioni_whistleblowing, name='lista_segnalazioni'),
+    path('segnalazioni/<int:pk>/', views.dettaglio_segnalazione, name='dettaglio_segnalazione'),
+    path('whistleblowing/', views.invia_segnalazione, name='whistleblowing_portal'),
+    path('whistleblowing/info/', views.whistleblowing_info, name='whistleblowing_info'),
+    path('whistleblowing/success/', views.whistleblowing_success, name='whistleblowing_success'),
     # Dashboard
     path('dashboard/', views.dashboard_compliance, name='dashboard_compliance'),
 
     # Audit
     path('audit/create/', views.audit_create, name='audit_create'),
-    path('audit/checklist/<int:session_pk>/', views.audit_checklist, name='audit_checklist'),
+    path('audit/<int:pk>/checklist/', views.audit_checklist, name='audit_checklist'),
     path('audit/export-pdf/<int:session_pk>/', views.export_audit_pdf, name='export_audit_pdf'),
     path('audit/archive/<int:session_pk>/', views.archive_audit_to_repository, name='archive_audit_to_repository'),
     path('audit/export-pdf/<int:session_pk>/', views.export_audit_pdf, name='export_audit_pdf'),
@@ -100,7 +113,7 @@ urlpatterns = [
     path('csirt/notifica/nuova/', views.csirt_notifica_create, name='csirt_notifica_create'),
     path('csirt/download-nomina/', views.download_csirt_nomina, name='download_csirt_nomina'),
     path('csirt/notifica/<int:pk>/dettaglio/', views.csirt_notifica_dettaglio, name='csirt_notifica_dettaglio'),
-    
+    path('rete/configurazione/', views.configurazione_rete_view, name='configurazione_rete_view'),
     
     # === QUESTA È LA RIGA MANCANTE ===
     path('csirt/upload-template/', views.csirt_upload_template, name='csirt_upload_template'),
@@ -113,4 +126,10 @@ urlpatterns = [
     path('consulente/analisi-vulnerabilita/', views.analisi_vulnerabilita_view, name='analisi_vulnerabilita_view'),
     path('consulente/monitoraggio-eventi/', views.monitoraggio_eventi_view, name='monitoraggio_eventi_view'),
     path('consulente/alert-configurazione/', views.alert_configurazione, name='alert_configurazione'),
+    # Fornitori
+    path('fornitori/', views.lista_fornitori_azienda, name='lista_fornitori_azienda'),
+    path('fornitori/nuovo/', views.crea_fornitore, name='crea_fornitore'),
+    path('fornitori/invito/<uuid:fornitore_id>/', views.prepara_invito_fornitore, name='prepara_invito_fornitore'),
+    path('fornitori/aggiorna-stato/<uuid:fornitore_id>/', views.aggiorna_stato_fornitore, name='aggiorna_stato_fornitore'),
+    path('vendor-portal/<uuid:token>/', views.vendor_portal_form, name='vendor_portal_form'),
     ]

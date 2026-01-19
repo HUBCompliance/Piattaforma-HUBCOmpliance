@@ -2,17 +2,20 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.shortcuts import redirect
 
 urlpatterns = [
-    # --- AMMINISTRAZIONE ---
+    # Home
+    path('', lambda request: redirect('dashboard_studente', permanent=False)),
     path('admin/', admin.site.urls),
+    path('compliance/', include('compliance.urls')),
+    # --- AMMINISTRAZIONE ---
 
     # --- INTERNAZIONALIZZAZIONE (Lingua) ---
     path('i18n/', include('django.conf.urls.i18n')),
 
     # --- APP DEL PROGETTO (Moduli Verticali) ---
     path('courses/', include('courses.urls')),
-    path('compliance/', include('compliance.urls')),
     
     # --- NUOVO MODULO DI MONITORAGGIO (NIS2 Detection) ---
     # Gestisce il semaforo tecnico e il polling verso Prometheus

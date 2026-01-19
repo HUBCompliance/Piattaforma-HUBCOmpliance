@@ -17,7 +17,7 @@
 
         <div class="card shadow-sm">
             <div class="card-body p-4">
-                <form method="post" action="{% url 'consulente_gestisci_moduli' azienda.id %}">
+                <form method="post" action="{% url 'compliance:consulente_gestisci_moduli' azienda.id %}">
                     {% csrf_token %}
                     
                     <h5 class="card-subtitle mb-3 text-primary">{% translate "Attivazione Moduli" %}</h5>
@@ -50,7 +50,7 @@
 
                     <hr>
                     <div class="d-flex justify-content-between">
-                        <a href="{% url 'dashboard_consulente' %}" class="btn btn-outline-secondary">
+                        <a href="{% url 'compliance:dashboard_consulente' %}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left"></i> {% translate "Annulla e Torna" %}
                         </a>
                         <button type="submit" class="btn btn-success">

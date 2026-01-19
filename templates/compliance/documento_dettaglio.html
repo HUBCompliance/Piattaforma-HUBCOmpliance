@@ -9,8 +9,8 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'documento_list' %}">{% translate "Gestione Documentale" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:documento_list' %}">{% translate "Gestione Documentale" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{{ documento.nome }}</li>
             </ol>
         </nav>
@@ -20,7 +20,7 @@
                 <h5 class="mb-0">{{ documento.nome }}</h5>
                 
                 {% if documento.categoria.nome != "Attestati di Formazione" %}
-                <a href="{% url 'versione_create' documento.pk %}" class="btn btn-success btn-sm">
+                <a href="{% url 'compliance:versione_create' documento.pk %}" class="btn btn-success btn-sm">
                     <i class="bi bi-upload me-1"></i> {% translate "Carica Nuova Versione" %}
                 </a>
                 {% endif %}

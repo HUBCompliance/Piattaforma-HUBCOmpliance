@@ -1,0 +1,90 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Fornitori" %} - {{ azienda.nome }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+  <div class="col">
+    <h1 class="h3 mb-0">{% translate "Fornitori" %} - {{ azienda.nome }}</h1>
+    <p class="text-muted mb-0">{% translate "Gestisci inviti e stato di valutazione dei fornitori." %}</p>
+  </div>
+  <div class="col-auto d-flex gap-2">
+    <a href="{% url 'compliance:crea_fornitore' %}?azienda_id={{ azienda.pk }}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>{% translate "Nuovo Fornitore" %}
+    </a>
+    <a href="{% url 'compliance:dashboard_consulente' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>{% translate "Torna alla dashboard" %}
+    </a>
+  </div>
+</div>
+
+{% if fornitori %}
+  <div class="card shadow-sm border-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>{% translate "Ragione Sociale" %}</th>
+            <th>{% translate "Email" %}</th>
+            <th>{% translate "Servizio" %}</th>
+            <th>{% translate "Stato" %}</th>
+            <th>{% translate "Conformità" %}</th>
+            <th class="text-end pe-4">{% translate "Azioni" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fornitore in fornitori %}
+            <tr>
+              <td class="ps-3 fw-bold text-dark">{{ fornitore.ragione_sociale }}</td>
+              <td>{{ fornitore.email_contatto }}</td>
+              <td>{{ fornitore.servizio_fornito }}</td>
+              <td>
+                <span class="badge bg-{{ fornitore.get_status_color }}">
+                  {{ fornitore.get_stato_valutazione_display }}
+                </span>
+              </td>
+              <td>
+                {% if fornitore.stato_valutazione == 'COMPILATO' or fornitore.stato_valutazione == 'REVISIONATO' %}
+                  <div class="progress" style="height: 18px; width: 140px;">
+                    <div class="progress-bar bg-{{ fornitore.get_status_color }}"
+                         role="progressbar"
+                         style="width: {{ fornitore.get_compliance_score }}%;"
+                         aria-valuenow="{{ fornitore.get_compliance_score }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ fornitore.get_compliance_score }}%
+                    </div>
+                  </div>
+                {% else %}
+                  <span class="text-muted small">{% translate "In attesa" %}</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-4">
+                <div class="d-flex justify-content-end flex-wrap gap-2">
+                  <a href="{% url 'compliance:lista_domande_fornitori' fornitore.id %}" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-clipboard-check me-1"></i>{% translate "Questionario" %}
+                  </a>
+                  <a href="{% url 'compliance:risultati_fornitori' fornitore.id %}" class="btn btn-sm btn-outline-dark">
+                    <i class="bi bi-graph-up me-1"></i>{% translate "Risultati" %}
+                  </a>
+                  <a href="{% url 'compliance:prepara_invito_fornitore' fornitore.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-send me-1"></i>{% translate "Prepara invito" %}
+                  </a>
+                  <a href="{% url 'compliance:aggiorna_stato_fornitore' fornitore.id %}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-check2-circle me-1"></i>{% translate "Segna inviato" %}
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="alert alert-info border-0 shadow-sm">
+    <i class="bi bi-info-circle me-2"></i>{% translate "Nessun fornitore presente per questa azienda." %}
+  </div>
+{% endif %}
+{% endblock %}

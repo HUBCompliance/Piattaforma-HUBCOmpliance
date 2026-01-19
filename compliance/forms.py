@@ -5,6 +5,8 @@ from django.forms import inlineformset_factory
 from django.utils.translation import gettext_lazy as _
 
 # Importa tutti i modelli da compliance.models (modello 'NotificaIncidente' è aggiornato)
+# compliance/forms.py
+
 from .models import (
     CategoriaDati, SoggettoInteressato, Trattamento, DomandaChecklist, RispostaChecklist,
     TemplateDocumento, CategoriaDocumento, DocumentoAziendale, VersioneDocumento,
@@ -12,7 +14,10 @@ from .models import (
     AuditCategoria, AuditDomanda, AuditRisposta, AuditSession,
     Compito, Asset, Software, RuoloPrivacy, Paese, ValutazioneTIA, Videosorveglianza,
     ReferenteCSIRT, ContattoInternoCSIRT, NotificaIncidente, AllegatoNotifica,
-    ConfigurazioneRete, ComponenteRete 
+    ConfigurazioneRete, ComponenteRete,
+    DomandaFornitore,                 # <--- Aggiungi questo
+    RispostaQuestionarioFornitore,    # <--- Aggiungi questo (Risolve l'errore alla riga 429)
+    Fornitore
 )
 # Importa i modelli necessari da altri moduli se usati nei form
 from user_auth.models import CustomUser as User, Azienda
@@ -37,7 +42,17 @@ class TrattamentoForm(forms.ModelForm):
 
     class Meta:
         model = Trattamento
-        exclude = ['azienda', 'creato_da', 'livello_rischio', 'punteggio_rischio_calcolato', 'dpia_necessaria']
+        # Ho allineato i campi a quelli effettivamente presenti nel tuo models.py
+        fields = [
+            'nome_trattamento', 
+            'tipo_ruolo',
+            'finalita', 
+            'categorie_dati', 
+            'soggetti_interessati', 
+            'destinatari_esterni',
+            'tempo_conservazione',
+            'misure_sicurezza'
+        ]
         widgets = {
             'finalita': forms.Textarea(attrs={'rows': 3}),
             'categorie_dati': forms.CheckboxSelectMultiple(),
@@ -45,6 +60,18 @@ class TrattamentoForm(forms.ModelForm):
             'destinatari_interni': forms.Textarea(attrs={'rows': 3}),
             'destinatari_esterni': forms.Textarea(attrs={'rows': 3}),
             'misure_sicurezza': forms.Textarea(attrs={'rows': 4}),
+            'nome_trattamento': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Es. Gestione Paghe Dipendenti'}),
+            'tipo_ruolo': forms.Select(attrs={'class': 'form-select'}),
+            'finalita': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'id': 'id_finalita'}),
+            
+            # Questi due sono ManyToMany e useranno le checkbox editabili
+            'categorie_dati': forms.CheckboxSelectMultiple(),
+            'soggetti_interessati': forms.CheckboxSelectMultiple(),
+            
+            # Questi sono TextField nel modello, quindi usiamo Textarea
+            'destinatari_esterni': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Es. Consulente del Lavoro, Software House Cloud...'}),
+            'tempo_conservazione': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Es. 10 anni dalla cessazione del rapporto'}),
+            'misure_sicurezza': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Es. Crittografia, Backup giornaliero, MFA...'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -101,6 +128,10 @@ class TrattamentoForm(forms.ModelForm):
     def save_m2m(self):
         super().save_m2m()
         self._update_m2m_from_input(self.instance)
+        # Rendiamo le checkbox più carine aggiungendo una classe bootstrap via codice
+        self.fields['categorie_dati'].widget.attrs.update({'class': 'form-check-input'})
+        self.fields['soggetti_interessati'].widget.attrs.update({'class': 'form-check-input'})
+        
 
 # ==============================================================================
 # 2. FORMS PER LA GESTIONE DOCUMENTALE
@@ -255,7 +286,8 @@ class AziendaModuliForm(forms.ModelForm):
         fields = [
             'mod_trattamenti', 'mod_documenti', 'mod_audit', 'mod_videosorveglianza', 
             'mod_tia', 'mod_organigramma', 'mod_csirt', 'mod_cruscotto', 
-            'mod_incidenti', 'mod_richieste', 'mod_formazione', 'mod_storico_audit'
+            'mod_incidenti', 'mod_richieste', 'mod_formazione', 'mod_storico_audit',
+            'mod_asset', 'mod_analisi_rischi', 'mod_rete', 'mod_fornitori', 'mod_whistleblowing'
         ]
         labels = {
             'mod_trattamenti': _("Registro Trattamenti (GDPR)"),
@@ -270,6 +302,11 @@ class AziendaModuliForm(forms.ModelForm):
             'mod_richieste': _("Richieste Interessati"),
             'mod_formazione': _("Gestione Formazione Dipendenti"),
             'mod_storico_audit': _("Storico Sessioni Audit"),
+            'mod_asset': _("Asset Aziendali"),
+            'mod_analisi_rischi': _("Analisi Rischi"),
+            'mod_rete': _("Configurazione Rete"),
+            'mod_fornitori': _("Fornitori"),
+            'mod_whistleblowing': _("Whistleblowing"),
         }
 
 # ==============================================================================
@@ -315,6 +352,25 @@ class NotificaIncidenteForm(forms.ModelForm):
             'data_incidente': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'data_notifica': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'descrizione_danno': forms.Textarea(attrs={'rows': 3}),
+            'valutazione_rischio': forms.Textarea(attrs={'rows': 3}),
+            'azioni_correttive': forms.Textarea(attrs={'rows': 3}),
+        }
+
+class NotificaIncidenteUpdateForm(forms.ModelForm):
+    class Meta:
+        model = NotificaIncidente
+        fields = [
+            'categoria_incidente',
+            'impatto_stimato',
+            'severita_incidente',
+            'playbook_associato',
+            'stato',
+            'valutazione_rischio',
+            'azioni_correttive',
+            'data_notifica',
+        ]
+        widgets = {
+            'data_notifica': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'valutazione_rischio': forms.Textarea(attrs={'rows': 3}),
             'azioni_correttive': forms.Textarea(attrs={'rows': 3}),
         }
@@ -393,3 +449,33 @@ RuoloPrivacyFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+# ==============================================================================
+# 11. FORMS SECURITY VENDOR (CLUSIT)
+# ==============================================================================
+
+class RispostaQuestionarioFornitoreForm(forms.ModelForm):
+    class Meta:
+        model = RispostaQuestionarioFornitore
+        fields = ['valore_risposta', 'note']
+        widgets = {
+            'valore_risposta': forms.Select(choices=[
+                (1.0, _('Sì (Pieno)')), 
+                (0.5, _('Parziale')), 
+                (0.0, _('No / Assente'))
+            ], attrs={'class': 'form-select'}),
+            'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+# ==============================================================================
+# 12. FORMS FORNITORI
+# ==============================================================================
+
+class FornitoreForm(forms.ModelForm):
+    class Meta:
+        model = Fornitore
+        fields = ['ragione_sociale', 'email_contatto', 'servizio_fornito']
+        widgets = {
+            'ragione_sociale': forms.TextInput(attrs={'class': 'form-control'}),
+            'email_contatto': forms.EmailInput(attrs={'class': 'form-control'}),
+            'servizio_fornito': forms.TextInput(attrs={'class': 'form-control'}),
+        }

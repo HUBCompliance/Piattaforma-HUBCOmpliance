@@ -9,8 +9,8 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'incidente_list' %}">{% translate "Gestione Incidenti" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:incidente_list' %}">{% translate "Gestione Incidenti" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{{ incidente.titolo }}</li>
             </ol>
         </nav>
@@ -42,7 +42,7 @@
                 <p>{{ incidente.azioni_correttive|linebreaks|default:"Nessuna azione ancora registrata." }}</p>
 
                 <hr>
-                <a href="{% url 'incidente_list' %}" class="btn btn-outline-secondary">{% translate "Torna alla Lista Incidenti" %}</a>
+                <a href="{% url 'compliance:incidente_list' %}" class="btn btn-outline-secondary">{% translate "Torna alla Lista Incidenti" %}</a>
 
             </div>
         </div>

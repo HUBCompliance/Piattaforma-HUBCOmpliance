@@ -2,82 +2,69 @@
 {% load i18n %}
 {% load static %}
 
-{% block title %}{% translate "Dashboard Consulente" %}{% endblock %}
+{% block title %}{% translate "I Miei Corsi" %}{% endblock %}
 
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h3 mb-0">{% translate "Gestione Aziende Cliente" %}</h1>
-            <span class="badge bg-primary">{% translate "Consulente" %}: {{ user.get_full_name }}</span>
+            <h1 class="h3 mb-0">{% translate "Piattaforma Formazione" %}</h1>
+            <span class="badge bg-info text-dark">{% translate "Studente" %}: {{ user.get_full_name|default:user.username }}</span>
         </div>
-        
-        {# NUOVO TASTO PER L'IMPORTAZIONE MASSIVA #}
-        <a href="{% url 'import_controls_excel' %}" class="btn btn-success shadow-sm">
-            <i class="bi bi-file-earmark-excel me-2"></i>{% translate "Carica Nuovo Framework" %}
-        </a>
-    </div>
+        </div>
 
     {% include "includes/messages.html" %}
     
-    {% if aziende_list %}
-        {% for azienda in aziende_list %}
-            <div class="card shadow-sm mb-4 border-0">
-                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="mb-0 fw-bold text-primary">{{ azienda.nome }}</h5>
-                        <small class="text-muted">P.IVA: {{ azienda.partita_iva }}</small>
-                    </div>
-                    <div>
-                        <a href="{% url 'dashboard_compliance' %}?azienda_id={{ azienda.id }}" class="btn btn-sm btn-primary px-3 shadow-sm">
-                            {% translate "Accedi Dashboard" %} <i class="bi bi-arrow-right ms-1"></i>
-                        </a>
-                        <a href="{% url 'consulente_gestisci_moduli' azienda_id=azienda.id %}" class="btn btn-sm btn-outline-secondary ms-2">
-                            <i class="bi bi-gear-fill me-1"></i> {% translate "Moduli" %}
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-3 border-end">
-                            <p class="small mb-1 text-uppercase text-muted fw-bold">{% translate "Stato Contratto" %}</p>
-                            <span class="badge {% if azienda.stato_contratto == 'ATTIVO' %}bg-success{% else %}bg-warning text-dark{% endif %}">
-                                {{ azienda.stato_contratto }}
-                            </span>
-                        </div>
-                        
-                        <div class="col-md-9 ps-md-4">
-                            <p class="small mb-2 text-uppercase text-muted fw-bold">{% translate "Moduli di Conformità" %}</p>
-                            <div class="d-flex flex-wrap gap-2">
-                                <span class="badge {% if azienda.mod_trattamenti %}bg-success{% else %}bg-light text-muted border{% endif %}">
-                                    <i class="bi bi-shield-check"></i> GDPR
+    <div class="row">
+        {% if iscrizioni %}
+            {% for iscrizione in iscrizioni %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm border-0" style="border-radius: 15px; overflow: hidden;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-light text-primary border border-primary small">
+                                    {{ iscrizione.corso.categoria.nome|default:"Generale" }}
                                 </span>
-                                <span class="badge {% if azienda.mod_csirt %}bg-danger{% else %}bg-light text-muted border{% endif %}">
-                                    <i class="bi bi-exclamation-triangle"></i> NIS2/CSIRT
-                                </span>
-                                <span class="badge {% if azienda.mod_rete %}bg-info text-white{% else %}bg-light text-muted border{% endif %}">
-                                    <i class="bi bi-diagram-3"></i> Infrastruttura
-                                </span>
-                                <span class="badge {% if azienda.mod_documenti %}bg-success{% else %}bg-light text-muted border{% endif %}">
-                                    <i class="bi bi-file-earmark-text"></i> Documenti
-                                </span>
-                                <span class="badge {% if azienda.mod_audit %}bg-success{% else %}bg-light text-muted border{% endif %}">
-                                    <i class="bi bi-check2-square"></i> Audit
-                                </span>
-                                <span class="badge {% if azienda.mod_videosorveglianza %}bg-success{% else %}bg-light text-muted border{% endif %}">
-                                    <i class="bi bi-camera-video"></i> Video
-                                </span>
+                                {% if iscrizione.completato %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> {% translate "Completato" %}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <h5 class="card-title fw-bold">{{ iscrizione.corso.nome }}</h5>
+                            <p class="card-text text-muted small">
+                                {{ iscrizione.corso.descrizione|truncatewords:15 }}
+                            </p>
+                            
+                            <div class="mt-4">
+                                <div class="d-flex justify-content-between mb-1 small">
+                                    <span>{% translate "Progresso" %}</span>
+                                    <span>{{ iscrizione.calcola_percentuale_progresso|default:"0" }}%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" 
+                                         style="width: {{ iscrizione.calcola_percentuale_progresso|default:'0' }}%"></div>
+                                </div>
                             </div>
                         </div>
+                        <div class="card-footer bg-white border-0 pb-3">
+                            <a href="{% url 'courses:dettaglio_corso' iscrizione.corso.id %}" class="btn btn-primary w-100 shadow-sm">
+                                {% if iscrizione.completato %}
+                                    {% translate "Rivedi Corso" %}
+                                {% else %}
+                                    {% translate "Continua Lezione" %} <i class="bi bi-play-fill"></i>
+                                {% endif %}
+                            </a>
+                        </div>
                     </div>
                 </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12 text-center py-5">
+                <div class="card p-5 shadow-sm border-0">
+                    <i class="bi bi-journal-x display-1 text-muted mb-3"></i>
+                    <h4>{% translate "Nessun corso assegnato" %}</h4>
+                    <p class="text-muted">{% translate "Non hai ancora corsi nel tuo piano formativo. Contatta il tuo responsabile." %}</p>
+                </div>
             </div>
-        {% endfor %}
-    {% else %}
-        <div class="card p-5 text-center shadow-sm">
-            <i class="bi bi-building-exclamation display-1 text-muted mb-3"></i>
-            <h4 class="text-muted">{% translate "Nessuna azienda assegnata." %}</h4>
-            <p class="mb-0">{% translate "Contatta l'amministratore per farti assegnare un'azienda cliente." %}</p>
-        </div>
-    {% endif %}
+        {% endif %}
+    </div>
 {% endblock %}

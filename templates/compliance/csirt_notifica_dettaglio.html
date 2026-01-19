@@ -113,48 +113,6 @@
         {# === COLONNA DESTRA: ALLEGATI, PLAYBOOK & AI === #}
         <div class="col-lg-6">
             
-            {# 3. GENERAZIONE PLAYBOOK AI #}
-            <div class="card shadow-sm mb-4 border-info border-3 border-start">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">{% translate "3. Supporto AI: Playbook di Risposta" %}</h5>
-                </div>
-                <div class="card-body">
-                    
-                    {% if not is_referente %}
-                        <p class="small text-muted">{% translate "Utilizza l'AI per generare una bozza di Playbook basata sulla categoria e l'impatto definiti." %}</p>
-                        
-                        <div class="d-grid gap-2">
-                            <a href="#" class="btn btn-sm btn-outline-info" id="btn-repository-playbooks" target="_blank">
-                                <i class="bi bi-folder"></i> {% translate "Apri Repository Template Standard" %}
-                            </a>
-
-                            <button type="button" class="btn btn-sm btn-primary" id="btn-generate-ai-playbook" disabled>
-                                <i class="bi bi-robot"></i> {% translate "Genera Bozza Playbook con AI" %}
-                            </button>
-                        </div>
-
-                        <hr>
-                    {% endif %}
-
-                    <h6 class="small fw-bold">{% translate "Risultato Generazione AI" %}</h6>
-                    <div id="ai-playbook-result" class="p-3 bg-light border rounded small">
-                        {% if not is_referente %}
-                           {% translate "Clicca sul pulsante 'Genera Bozza Playbook' per ricevere istruzioni specifiche basate sull'IA." %}
-                        {% else %}
-                           {% translate "Visualizzazione AI disabilitata. Contatta il tuo Consulente." %}
-                        {% endif %}
-                    </div>
-
-                    <div id="ai-loading-spinner" class="text-center mt-3 d-none">
-                        <div class="spinner-border text-primary spinner-border-sm" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <span class="small ms-2">{% translate "Generazione Playbook in corso..." %}</span>
-                    </div>
-
-                </div>
-            </div>
-            
             {# 2. GESTIONE ALLEGATI (Formset) #}
             <div class="card shadow-sm mb-4 border-secondary border-3 border-start">
                 <div class="card-header bg-secondary text-white">
@@ -211,6 +169,48 @@
                     
                 </div>
             </div>
+
+            {# 3. GENERAZIONE PLAYBOOK AI #}
+            <div class="card shadow-sm mb-4 border-info border-3 border-start">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">{% translate "3. Supporto AI: Playbook di Risposta" %}</h5>
+                </div>
+                <div class="card-body">
+                    
+                    {% if not is_referente %}
+                        <p class="small text-muted">{% translate "Utilizza l'AI per generare una bozza di Playbook basata sulla categoria e l'impatto definiti." %}</p>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="#" class="btn btn-sm btn-outline-info" id="btn-repository-playbooks" target="_blank">
+                                <i class="bi bi-folder"></i> {% translate "Apri Repository Template Standard" %}
+                            </a>
+
+                            <button type="button" class="btn btn-sm btn-primary" id="btn-generate-ai-playbook" disabled>
+                                <i class="bi bi-robot"></i> {% translate "Genera Bozza Playbook con AI" %}
+                            </button>
+                        </div>
+
+                        <hr>
+                    {% endif %}
+
+                    <h6 class="small fw-bold">{% translate "Risultato Generazione AI" %}</h6>
+                    <div id="ai-playbook-result" class="p-3 bg-light border rounded small">
+                        {% if not is_referente %}
+                           {% translate "Clicca sul pulsante 'Genera Bozza Playbook' per ricevere istruzioni specifiche basate sull'IA." %}
+                        {% else %}
+                           {% translate "Visualizzazione AI disabilitata. Contatta il tuo Consulente." %}
+                        {% endif %}
+                    </div>
+
+                    <div id="ai-loading-spinner" class="text-center mt-3 d-none">
+                        <div class="spinner-border text-primary spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="small ms-2">{% translate "Generazione Playbook in corso..." %}</span>
+                    </div>
+
+                </div>
+            </div>
         </div>
         
     </div>
@@ -219,7 +219,7 @@
 
 <div class="row mt-4">
     <div class="col-12">
-        <a href="{% url 'csirt_dashboard' %}" class="btn btn-outline-secondary">
+        <a href="{% url 'compliance:csirt_dashboard' %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> {% translate "Torna alla Dashboard CSIRT" %}
         </a>
     </div>
@@ -288,7 +288,7 @@ Includi istruzioni specifiche per la fase di Contenimento e le azioni immediate 
                 $loadingSpinner.removeClass('d-none');
                 
                 $.ajax({
-                    url: "{% url 'csirt_ai_query' %}", 
+                    url: "{% url 'compliance:csirt_ai_query' %}", 
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({ prompt: prompt }),

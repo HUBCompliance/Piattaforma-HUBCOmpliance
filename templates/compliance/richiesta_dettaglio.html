@@ -9,8 +9,8 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'richiesta_list' %}">{% translate "Gestione Richieste" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:richiesta_list' %}">{% translate "Gestione Richieste" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{{ titolo_pagina }}</li>
             </ol>
         </nav>
@@ -60,7 +60,7 @@
                     <hr class="my-4">
                     
                     <button type="submit" class="btn btn-primary btn-lg">{% translate "Aggiorna Ticket" %}</button>
-                    <a href="{% url 'richiesta_list' %}" class="btn btn-outline-secondary btn-lg">{% translate "Annulla" %}</a>
+                    <a href="{% url 'compliance:richiesta_list' %}" class="btn btn-outline-secondary btn-lg">{% translate "Annulla" %}</a>
 
                 </form>
             </div>

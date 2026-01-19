@@ -1,0 +1,24 @@
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i>Stato Servizio Whistleblowing</h5>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-6 border-end">
+                <small class="text-muted text-uppercase fw-bold">Soluzione Attiva</small>
+                <h4 class="text-primary">{{ config.nome_pacchetto }}</h4>
+                <p class="small text-muted">Attivato il: {{ config.data_attivazione|date:"d/m/Y" }}</p>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted text-uppercase fw-bold">Segnalazioni Ricevute ({{ anno_corrente }})</small>
+                <h4 class="display-6 fw-bold text-dark">{{ totale_anno }}</h4>
+                <span class="badge bg-success">Canale Operativo</span>
+            </div>
+        </div>
+        
+        <div class="alert alert-info mt-4 mb-0">
+            <i class="bi bi-info-circle-fill me-2"></i>
+            <strong>Nota sulla Privacy:</strong> In conformità alla Direttiva UE 2019/1937, i dettagli delle segnalazioni sono accessibili esclusivamente al Consulente/DPO esterno per garantire l'imparzialità e l'anonimato.
+        </div>
+    </div>
+</div>

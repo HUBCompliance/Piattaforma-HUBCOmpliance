@@ -9,7 +9,7 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{% translate "Gestione Documentale" %}</li>
             </ol>
         </nav>
@@ -19,7 +19,7 @@
                 <h5 class="mb-0 fw-bold text-primary">
                     <i class="bi bi-folder-fill me-2"></i>{% translate "Repository Documenti Aziendali" %}
                 </h5>
-                <a href="{% url 'documento_create' %}" class="btn btn-primary btn-sm shadow-sm">
+                <a href="{% url 'compliance:documento_create' %}" class="btn btn-primary btn-sm shadow-sm">
                     <i class="bi bi-plus-circle me-1"></i> {% translate "Aggiungi Documento" %}
                 </a>
             </div>
@@ -50,7 +50,7 @@
                                             <i class="bi bi-file-earmark-text-fill text-primary me-2 fs-5"></i>
                                         {% endif %}
                                         
-                                        <a href="{% url 'documento_dettaglio' doc.pk %}" class="text-decoration-none fw-bold text-dark">
+                                        <a href="{% url 'compliance:documento_dettaglio' doc.pk %}" class="text-decoration-none fw-bold text-dark">
                                             {{ doc.nome }}
                                         </a>
 
@@ -68,13 +68,13 @@
                                     </span>
                                     
                                     <div class="btn-group">
-                                        <a href="{% url 'documento_dettaglio' doc.pk %}" class="btn btn-outline-primary btn-sm px-3">
+                                        <a href="{% url 'compliance:documento_dettaglio' doc.pk %}" class="btn btn-outline-primary btn-sm px-3">
                                             <i class="bi bi-eye-fill"></i>
                                         </a>
                                         
                                         {# BLOCCO CARICAMENTO MANUALE per Audit e Formazione #}
                                         {% if categoria.nome != "Audit e Verbali" and categoria.nome != "Attestati di Formazione" %}
-                                            <a href="{% url 'versione_create' doc.pk %}" class="btn btn-outline-success btn-sm px-3">
+                                            <a href="{% url 'compliance:versione_create' doc.pk %}" class="btn btn-outline-success btn-sm px-3">
                                                 <i class="bi bi-upload"></i>
                                             </a>
                                         {% endif %}
@@ -107,7 +107,7 @@
                                 {{ template.nome }}
                                 <br><small class="text-muted">{{ template.categoria.nome }}</small>
                             </span>
-                            <a href="{% url 'download_template' template.pk %}" class="btn btn-light btn-sm border shadow-sm">
+                            <a href="{% url 'compliance:download_template' template.pk %}" class="btn btn-light btn-sm border shadow-sm">
                                 <i class="bi bi-download"></i>
                             </a>
                         </li>

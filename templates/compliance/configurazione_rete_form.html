@@ -515,7 +515,7 @@
   </div>
 
   <div class="d-flex justify-content-between mt-4 border-top pt-3">
-    <a href="{% url 'csirt_dashboard' %}?azienda_id={{ azienda.pk }}" class="btn btn-outline-secondary">
+    <a href="{% url 'compliance:csirt_dashboard' %}?azienda_id={{ azienda.pk }}" class="btn btn-outline-secondary">
       <i class="bi bi-arrow-left me-1"></i> {% translate "Torna a Dashboard CSIRT" %}
     </a>
 

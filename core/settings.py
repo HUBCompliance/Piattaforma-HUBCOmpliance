@@ -8,8 +8,8 @@ sys.path.insert(0, str(BASE_DIR))
 
 SECRET_KEY = 'django-insecure-nubqoqlxqx26nuskrk6glb4p^n%v7*x!1bp202^z7pj=%0s%sq'
 DEBUG = True 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] 
-
+ALLOWED_HOSTS = ['https://www.hubcompliance.it','localhost', '127.0.0.1']
+CSRF_TRUSTED_ORIGINS = ['https://www.hubcompliance.it','http://127.0.0.1', 'http://localhost']
 # ==============================================================================
 # ORDINE CORRETTO DELLE APP
 # ==============================================================================
@@ -45,6 +45,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'compliance.middleware.AuditMiddleware'
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -129,6 +130,9 @@ USE_TZ = True
 # Forziamo EmailJS anche in locale (DEBUG=True)
 EMAIL_BACKEND = 'user_auth.email_backend.EmailJSBackend'
 DEFAULT_FROM_EMAIL = 'supporto@tua-piattaforma.com' 
+EMAILJS_SERVICE_ID = 'service_ll3lijj'
+EMAILJS_TEMPLATE_ID = 'template_5afoedn'
+EMAILJS_PUBLIC_KEY = 'yjnjud9vgWLK4twHi'
 # settings.py
 
 # Forziamo il formato standard ISO 8601 per gli input HTML e JSON.

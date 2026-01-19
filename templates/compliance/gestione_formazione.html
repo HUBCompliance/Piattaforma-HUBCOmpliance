@@ -9,7 +9,7 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{{ titolo_pagina }}</li>
             </ol>
         </nav>
@@ -18,10 +18,10 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{% translate "Gestione Formazione Dipendenti" %} ({{ azienda.nome }})</h5>
                 <div>
-                    <a href="{% url 'referente_import_excel' %}" class="btn btn-success btn-sm">
+                    <a href="{% url 'compliance:referente_import_excel' %}" class="btn btn-success btn-sm">
                         <i class="bi bi-file-earmark-excel me-1"></i> {% translate "Importa Studenti (Excel)" %}
                     </a>
-                    <a href="{% url 'studente_create' %}" class="btn btn-primary btn-sm">
+                    <a href="{% url 'compliance:studente_create' %}" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-circle me-1"></i> {% translate "Aggiungi Studente" %}
                     </a>
                 </div>
@@ -48,14 +48,14 @@
                                     <br>
                                     <small class="text-muted">{{ item.studente.email }}</small>
                                     <br>
-                                    <a href="{% url 'studente_update' item.studente.pk %}" class="btn btn-link btn-sm p-0">{% translate "Modifica" %}</a>
+                                    <a href="{% url 'compliance:studente_update' item.studente.pk %}" class="btn btn-link btn-sm p-0">{% translate "Modifica" %}</a>
                                 </td>
                                 
                                 {% for corso in corsi_list %}
                                     <td class="text-center align-middle">
                                         {% if corso.id in item.iscrizioni_set %}
                                             <i class="bi bi-check-circle-fill text-success fs-5" title="Iscritto"></i>
-                                            <form action="{% url 'gestione_formazione' %}" method="post" class="d-inline ms-2">
+                                            <form action="{% url 'compliance:gestione_formazione' %}" method="post" class="d-inline ms-2">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="studente_id" value="{{ item.studente.id }}">
                                                 <input type="hidden" name="corso_id" value="{{ corso.id }}">
@@ -64,7 +64,7 @@
                                                 </button>
                                             </form>
                                         {% else %}
-                                            <form action="{% url 'gestione_formazione' %}" method="post" class="d-inline">
+                                            <form action="{% url 'compliance:gestione_formazione' %}" method="post" class="d-inline">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="studente_id" value="{{ item.studente.id }}">
                                                 <input type="hidden" name="corso_id" value="{{ corso.id }}">

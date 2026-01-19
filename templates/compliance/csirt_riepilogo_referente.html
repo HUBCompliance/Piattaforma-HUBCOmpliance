@@ -72,10 +72,10 @@
             <div class="card-body">
                 <h6 class="small fw-bold mb-3"><i class="bi bi-lightning-charge-fill text-danger"></i> {% translate "Azioni Immediate" %}</h6>
                 <div class="d-grid gap-2">
-                    <a href="{% url 'csirt_notifica_create' %}" class="btn btn-danger">
+                    <a href="{% url 'compliance:csirt_notifica_create' %}" class="btn btn-danger">
                         <i class="bi bi-plus-circle me-1"></i> {% translate "Registra Nuova Notifica Incidente" %}
                     </a>
-                    <a href="{% url 'configurazione_rete_view' %}" class="btn btn-outline-secondary">
+                    <a href="{% url 'compliance:configurazione_rete_view' %}" class="btn btn-outline-secondary">
                         <i class="bi bi-diagram-3 me-1"></i> {% translate "Visualizza Configurazione Rete" %}
                     </a>
                 </div>
@@ -181,7 +181,7 @@
                                         <h6 class="mb-1 fw-bold">{{ notifica.titolo_incidente }}</h6>
                                         <small class="text-muted">{{ notifica.data_incidente|date:"d M Y H:i" }}</small>
                                     </div>
-                                    <a href="{% url 'csirt_notifica_dettaglio' pk=notifica.pk %}" class="btn btn-sm btn-outline-info">
+                                    <a href="{% url 'compliance:csirt_notifica_dettaglio' pk=notifica.pk %}" class="btn btn-sm btn-outline-info">
                                         {% translate "Dettaglio" %}
                                     </a>
                                 </li>

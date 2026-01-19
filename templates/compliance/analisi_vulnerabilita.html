@@ -8,7 +8,7 @@
             <i class="bi bi-shield-lock-fill text-primary me-2"></i>
             {% translate "Analisi Vulnerabilità" %} - {{ azienda.nome }}
         </h1>
-        <a href="{% url 'dashboard_consulente' %}" class="btn btn-outline-secondary">
+        <a href="{% url 'compliance:dashboard_consulente' %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Torna alla Dashboard
         </a>
     </div>
@@ -17,7 +17,7 @@
     <div class="alert alert-info border-primary shadow-sm mb-4">
         <h5 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Configurazione Scansione</h5>
         <p>Inserisci il dominio da analizzare per <strong>{{ azienda.nome }}</strong> su DeHashed:</p>
-        <form method="GET" action="{% url 'avvia_scansione_deashed' azienda.id %}" class="row g-3">
+        <form method="GET" action="{% url 'courses:avvia_scansione_deashed' azienda.id %}" class="row g-3">
             <div class="col-auto">
                 <input type="text" name="dominio_manuale" class="form-control" placeholder="es. azienda.it" required>
             </div>
@@ -67,7 +67,7 @@
                 <div class="text-center py-5">
                     <i class="bi bi-search fa-3x text-gray-200 mb-3"></i>
                     <p class="text-muted">Nessuna scansione recente trovata o nessun dato rilevato.</p>
-                    <a href="{% url 'avvia_scansione_deashed' azienda.id %}" class="btn btn-primary">
+                    <a href="{% url 'courses:avvia_scansione_deashed' azienda.id %}" class="btn btn-primary">
                         <i class="bi bi-play-fill"></i> Avvia Nuova Scansione
                     </a>
                 </div>

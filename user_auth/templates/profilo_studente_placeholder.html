@@ -1,0 +1,98 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-0" style="border-radius: 15px;">
+                <div class="card-header bg-white border-0 pt-4">
+                    <h3 class="fw-bold text-center" style="color: #005a9c;">
+                        <i class="bi bi-person-circle"></i> {% trans "Il Mio Profilo Studente" %}
+                    </h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <h5 class="mb-3 text-secondary border-bottom pb-2">{% trans "Informazioni Personali" %}</h5>
+                            {% for field in profilo_form %}
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold text-muted">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.errors %}
+                                        <div class="text-danger small">{{ field.errors|striptags }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-grid mt-3">
+                            <button type="submit" name="submit_profilo" class="btn btn-primary btn-lg" style="background-color: #005a9c; border-radius: 10px;">
+                                {% trans "Aggiorna Profilo" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-5">
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <h5 class="mb-3 text-secondary border-bottom pb-2">{% trans "Sicurezza e Password" %}</h5>
+                        <p class="small text-muted">{% trans "Usa questo modulo se desideri cambiare la tua password attuale." %}</p>
+                        
+                        {% for field in password_form %}
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="text-danger small">{{ field.errors|striptags }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        <div class="d-grid mt-3">
+                            <button type="submit" name="submit_password" class="btn btn-outline-danger btn-lg" style="border-radius: 10px;">
+                                {% trans "Cambia Password" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{% url 'dashboard_studente' %}" class="btn btn-link text-decoration-none">
+                    <i class="bi bi-arrow-left"></i> {% trans "Torna ai miei corsi" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    input[type="text"], input[type="email"], input[type="password"], select {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        transition: border-color .15s ease-in-out;
+    }
+    input:focus {
+        border-color: #005a9c;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(0, 90, 156, 0.1);
+    }
+    ul.errorlist { list-style: none; padding: 0; margin: 0; color: red; font-size: 0.8rem; }
+</style>
+{% endblock %}

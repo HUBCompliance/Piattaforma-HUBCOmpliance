@@ -7,7 +7,7 @@
 <div class="container py-4">
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Dashboard" %}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Dashboard" %}</a></li>
             <li class="breadcrumb-item active">{{ titolo_pagina }}</li>
         </ol>
     </nav>
@@ -82,18 +82,18 @@
                             <i class="bi bi-save me-2"></i>{% translate "Salva Audit" %}
                         </button>
 
-                        <a href="{% url 'dashboard_compliance' %}" class="btn btn-outline-secondary btn-lg px-4">
+                        <a href="{% url 'compliance:dashboard_compliance' %}" class="btn btn-outline-secondary btn-lg px-4">
                             {% translate "Annulla" %}
                         </a>
                     </div>
 
                     {% if sessione.pk %}
                     <div class="d-flex gap-2">
-                        <a href="{% url 'archive_audit_to_repository' sessione.pk %}" class="btn btn-outline-primary btn-lg px-4 shadow-sm">
+                        <a href="{% url 'compliance:archive_audit_to_repository' sessione.pk %}" class="btn btn-outline-primary btn-lg px-4 shadow-sm">
                             <i class="bi bi-archive me-2"></i>{% translate "Archivia nel Repository" %}
                         </a>
 
-                        <a href="{% url 'export_audit_pdf' sessione.pk %}" class="btn btn-danger btn-lg px-4 shadow-sm">
+                        <a href="{% url 'compliance:export_audit_pdf' sessione.pk %}" class="btn btn-danger btn-lg px-4 shadow-sm">
                             <i class="bi bi-file-earmark-pdf me-2"></i>{% translate "Scarica PDF" %}
                         </a>
                     </div>

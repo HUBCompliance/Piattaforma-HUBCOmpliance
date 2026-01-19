@@ -99,7 +99,7 @@ class Attestato(models.Model):
 # ==============================================================================
 
 class ImpostazioniSito(models.Model):
-    nome_piattaforma = models.CharField(max_length=100, default="EasyGDPR", verbose_name=_("Nome Piattaforma"))
+    nome_piattaforma = models.CharField(max_length=100, default="HubCompliance", verbose_name=_("Nome Piattaforma"))
     colore_primario = models.CharField(max_length=7, default="#005a9c", verbose_name=_("Colore Principale (Esadecimale)"))
     
     colore_secondario = ColorField(
@@ -119,6 +119,14 @@ class ImpostazioniSito(models.Model):
     email_reset_template_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Email Reset Template ID"))
     email_scadenza_template_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Email Scadenza Template ID"))
     email_scadenza_compito_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Email Scadenza Compito ID"))
+    email_fornitori_template_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Email Template ID (Fornitori)"))
+    emailjs_template_id_allerta = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="ID Template Allerta Intrusione",
+        help_text="L'ID del template EmailJS specifico per i tentativi di brute force."
+    )
     
     # === CAMPO AI ===
     gemini_api_key = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Chiave API Google Gemini"))
@@ -186,3 +194,24 @@ class ImpostazioniSito(models.Model):
     class Meta: 
         verbose_name = _("Impostazioni Sito")
         verbose_name_plural = _("Impostazioni Sito")
+class RegistroFormazione(models.Model):
+    FONTE_CHOICES = (('A', 'Automatico (Piattaforma)'), ('M', 'Manuale (Esterno)'))
+    
+    azienda = models.ForeignKey('user_auth.Azienda', on_delete=models.CASCADE, related_name='registro_formazione')
+    studente = models.ForeignKey('user_auth.CustomUser', on_delete=models.CASCADE, verbose_name="Dipendente")
+    titolo_corso = models.CharField(max_length=255)
+    data_completamento = models.DateField(default=timezone.now)
+    durata_ore = models.DecimalField(max_digits=5, decimal_places=2, help_text="Ore di formazione")
+    fonte = models.CharField(max_length=1, choices=FONTE_CHOICES, default='M')
+    note = models.TextField(blank=True, null=True, help_text="Eventuali note o riferimenti esterni")
+    
+    # Campo per caricare attestati esterni se inserito manualmente
+    documento_attestato = models.FileField(upload_to='attestati_manuali/', blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Voce Registro Formazione"
+        verbose_name_plural = "Registro Formazione Aziendale"
+        ordering = ['-data_completamento']
+
+    def __str__(self):
+        return f"{self.studente.get_full_name()} - {self.titolo_corso}"

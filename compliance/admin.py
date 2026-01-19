@@ -1,5 +1,16 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
+from datetime import timedelta
+
+# Import per Export Excel
+from import_export import resources, fields
+from import_export.widgets import ForeignKeyWidget
+from import_export.admin import ImportExportActionModelAdmin
+from import_export.admin import ExportActionModelAdmin
+
+# Import Modelli
+from user_auth.models import AuditLog, CustomUser
 from .models import (
     Trattamento, DocumentoAziendale, VersioneDocumento,
     Incidente, RichiestaInteressato, AuditSession, AuditDomanda, 
@@ -7,8 +18,22 @@ from .models import (
     RuoloPrivacy, Paese, ValutazioneTIA, Videosorveglianza,
     ReferenteCSIRT, NotificaIncidente,
     CategoriaDati, SoggettoInteressato, ConfigurazioneRete, ComponenteRete,
-    SecurityControl, SecurityAudit, SecurityResponse  # Assicurati che questi siano definiti in models.py
+    SecurityControl, SecurityAudit, SecurityResponse, Fornitore
 )
+
+# ==============================================================================
+# 0. RISORSA PER EXPORT AUDIT LOG (Necessaria per AuditLogAdmin)
+# ==============================================================================
+class AuditLogResource(resources.ModelResource):
+    utente = fields.Field(
+        column_name='Utente',
+        attribute='utente',
+        widget=ForeignKeyWidget(CustomUser, 'username')
+    )
+    class Meta:
+        model = AuditLog
+        fields = ('data_ora', 'utente', 'azione', 'modello', 'descrizione', 'indirizzo_ip')
+        export_order = ('data_ora', 'utente', 'azione', 'modello', 'descrizione', 'indirizzo_ip')
 
 # ==============================================================================
 # 1. ADMIN PER MODELLI BASE e TRATTAMENTI
@@ -167,12 +192,8 @@ class ComponenteReteAdmin(admin.ModelAdmin):
 
 @admin.register(SecurityControl)
 class SecurityControlAdmin(admin.ModelAdmin):
-    # Rimosso 'priorita' perché non presente nel modello SecurityControl
     list_display = ('control_id', 'area', 'descrizione', 'riferimento_iso')
-    
-    # Rimosso 'priorita' dai filtri
     list_filter = ('area',)
-    
     search_fields = ('control_id', 'descrizione', 'supporto_verifica', 'riferimento_iso')
     ordering = ('control_id',)
     
@@ -192,10 +213,41 @@ class SecurityAuditAdmin(admin.ModelAdmin):
 
 @admin.register(SecurityResponse)
 class SecurityResponseAdmin(admin.ModelAdmin):
-    # Usiamo una funzione per mostrare l'ID del controllo nella lista
     list_display = ('audit', 'get_control_id', 'esito')
     list_filter = ('esito', 'audit__azienda')
 
     def get_control_id(self, obj):
         return obj.controllo.control_id
     get_control_id.short_description = 'ID Controllo'
+
+# ==============================================================================
+# 9. ADMIN PER AUDIT LOG (REGISTRO ACCESSI E AZIONI)
+# ==============================================================================
+
+@admin.register(AuditLog)
+class AuditLogAdmin(ExportActionModelAdmin): # <--- Usiamo ExportActionModelAdmin invece di ImportExport
+    resource_class = AuditLogResource
+    
+    list_display = ('data_ora', 'utente', 'azione', 'modello', 'indirizzo_ip')
+    list_filter = ('azione', 'data_ora', 'utente')
+    search_fields = ('utente__username', 'utente__email', 'descrizione')
+    readonly_fields = ('data_ora', 'utente', 'azione', 'modello', 'descrizione', 'indirizzo_ip')
+    
+    # Questo aggiunge l'export anche nel menu a tendina "Azioni"
+    actions = ['pulisci_log_vecchi']
+
+    @admin.action(description='Cancella log selezionati più vecchi di 6 mesi')
+    def pulisci_log_vecchi(self, request, queryset):
+        from django.utils import timezone
+        from datetime import timedelta
+        sei_mesi_fa = timezone.now() - timedelta(days=180)
+        vecchi = AuditLog.objects.filter(data_ora__lt=sei_mesi_fa)
+        quantita = vecchi.count()
+        vecchi.delete()
+        self.message_user(request, f"Pulizia effettuata: rimossi {quantita} log obsoleti.")
+@admin.register(Fornitore)
+class FornitoreAdmin(admin.ModelAdmin):
+    list_display = ('ragione_sociale', 'azienda_cliente', 'stato_valutazione', 'data_creazione')
+    list_filter = ('stato_valutazione', 'azienda_cliente')
+    search_fields = ('ragione_sociale', 'email_contatto')
+    readonly_fields = ('access_token',) # Il token non va modificato a mano        

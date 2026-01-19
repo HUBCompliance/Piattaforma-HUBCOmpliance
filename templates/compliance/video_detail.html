@@ -88,8 +88,8 @@
                     </dl>
                     
                     <hr>
-                    <a href="{% url 'video_create' %}" class="btn btn-sm btn-outline-primary">{% translate "Modifica l'impianto" %}</a>
-                    <a href="{% url 'video_list' %}" class="btn btn-sm btn-outline-secondary">{% translate "Torna agli Impianti" %}</a>
+                    <a href="{% url 'compliance:video_create' %}" class="btn btn-sm btn-outline-primary">{% translate "Modifica l'impianto" %}</a>
+                    <a href="{% url 'compliance:video_list' %}" class="btn btn-sm btn-outline-secondary">{% translate "Torna agli Impianti" %}</a>
                     
                 </div>
                 
@@ -104,31 +104,31 @@
                     
                     <div class="list-group">
                         {# 1. Autorizzazione Preliminare (Art. 4 St. Lav.) #}
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='itl' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='itl' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <div><i class="bi bi-file-earmark-word me-2"></i> 📂 Istanza ITL (Autorizzazione)</div>
                             <span class="badge bg-secondary">DOCX</span>
                         </a>
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='accordo' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='accordo' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <div><i class="bi bi-file-earmark-word me-2"></i> 🤝 Bozza Accordo Sindacale</div>
                             <span class="badge bg-secondary">DOCX</span>
                         </a>
                         
                         {# 2. Nomine #}
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='nomina_resp_esterno' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='nomina_resp_esterno' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <div><i class="bi bi-file-earmark-person me-2"></i> 🤝 Nomina Responsabile Esterno (Strutturata)</div>
                             <span class="badge bg-secondary">DOCX</span>
                         </a>
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='nomina_resp_esterno_ai' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-success text-white">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='nomina_resp_esterno_ai' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-success text-white">
                             <div><i class="bi bi-robot me-2"></i> 🤖 Nomina Resp. Esterno (Generata AI)</div>
                             <span class="badge bg-white text-success">DOCX</span>
                         </a>
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='nomina_incaricati' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='nomina_incaricati' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <div><i class="bi bi-person-check me-2"></i> 📝 Nomina Incaricati alla visione</div>
                             <span class="badge bg-secondary">DOCX</span>
                         </a>
                         
                         {# 3. Informative #}
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='cartello' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='cartello' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <div><i class="bi bi-card-image me-2"></i> 🖼️ Modello Cartello "Area Videosorvegliata"</div>
                             <span class="badge bg-secondary">DOCX</span>
                         </a>
@@ -137,11 +137,11 @@
                         <div class="list-group-item list-group-item-secondary">
                             <i class="bi bi-file-text me-2"></i> Valutazioni del Rischio:
                         </div>
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='lia' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center small ps-5">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='lia' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center small ps-5">
                             LIA (Legitimate Interest Assessment)
                             <span class="badge bg-secondary">DOCX</span>
                         </a>
-                        <a href="{% url 'download_video_doc' pk=video.pk tipo_doc='dpia' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center small ps-5">
+                        <a href="{% url 'compliance:download_video_doc' pk=video.pk tipo_doc='dpia' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center small ps-5">
                             DPIA (Data Protection Impact Assessment)
                             <span class="badge bg-secondary">DOCX</span>
                         </a>

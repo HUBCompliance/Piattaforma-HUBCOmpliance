@@ -10,18 +10,22 @@
     <div class="col-md-7">
       <h1 class="text-primary mb-0"><i class="bi bi-person-badge me-2"></i>{% translate "Benvenuto Consulente" %}</h1>
     </div>
-    {# --- NUOVO TASTO CARICAMENTO FRAMEWORK --- #}
-    <div class="col-md-5 text-md-end mt-3 mt-md-0">
-      <a href="{% url 'import_controls_excel' %}" class="btn btn-success shadow-sm">
-        <i class="bi bi-file-earmark-excel me-2"></i>{% translate "Carica Nuovo Framework" %}
-      </a>
-    </div>
   </div>
 
   
 
   {# Messaggi di stato #}
   {% include "includes/messages.html" %}
+
+  {% if fornitori_compilati %}
+    <div class="alert alert-success border-0 shadow-sm mb-4">
+      <i class="bi bi-check-circle me-2"></i>
+      {% translate "Nuovi questionari fornitori completati:" %} {{ fornitori_compilati|length }}
+      <a class="ms-2" href="{% url 'compliance:lista_fornitori_azienda' %}?azienda_id={{ fornitori_compilati.0.azienda_cliente.pk }}">
+        {% translate "Apri elenco" %}
+      </a>
+    </div>
+  {% endif %}
 
   {# SEZIONE 1: RIEPILOGO CSIRT (Mantieni la tua logica esistente) #}
   {% if aziende_csirt_ref %}
@@ -34,7 +38,7 @@
         {% for azienda in aziende_csirt_ref %}
           <li class="list-group-item d-flex justify-content-between align-items-center bg-white">
             <strong>{{ azienda.nome }}</strong>
-            <a href="{% url 'csirt_dashboard' %}?azienda_id={{ azienda.pk }}" class="btn btn-sm btn-warning fw-bold">
+            <a href="{% url 'compliance:csirt_dashboard' %}?azienda_id={{ azienda.pk }}" class="btn btn-sm btn-warning fw-bold">
               {% translate "Vai a Gestione CSIRT" %}
             </a>
           </li>
@@ -71,7 +75,7 @@
 
         {# Colonna Moduli/Governance #}
         <td>
-          <a href="{% url 'consulente_gestisci_moduli' azienda.pk %}" class="btn btn-xs btn-outline-info py-1" style="font-size: 0.75rem;">
+          <a href="{% url 'compliance:consulente_gestisci_moduli' azienda.pk %}" class="btn btn-xs btn-outline-info py-1" style="font-size: 0.75rem;">
             <i class="bi bi-gear-fill me-1"></i>{% translate "Moduli" %}
           </a>
         </td>
@@ -80,7 +84,7 @@
 
         <td class="text-end pe-4">
           <div class="d-flex justify-content-end gap-2">
-            <a href="{% url 'dashboard_compliance' %}?azienda_id={{ azienda.pk }}" class="btn btn-sm btn-primary">
+            <a href="{% url 'compliance:dashboard_compliance' %}?azienda_id={{ azienda.pk }}" class="btn btn-sm btn-primary">
               {% translate "Dashboard" %}
             </a>
             <div class="dropdown">
@@ -88,8 +92,15 @@
                 {% translate "Altro" %}
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow">
-                <li><a class="dropdown-item" href="{% url 'consulente_crea_compito' azienda.pk %}"><i class="bi bi-check2-square me-2"></i>{% translate "Crea Compito" %}</a></li>
-                <li><a class="dropdown-item" href="{% url 'consulente_add_referente' azienda.pk %}"><i class="bi bi-person-plus me-2"></i>{% translate "Aggiungi Referente" %}</a></li>
+                <li><a class="dropdown-item" href="{% url 'compliance:consulente_crea_compito' azienda.pk %}"><i class="bi bi-check2-square me-2"></i>{% translate "Crea Compito" %}</a></li>
+                <li><a class="dropdown-item" href="{% url 'compliance:consulente_add_referente' azienda.pk %}"><i class="bi bi-person-plus me-2"></i>{% translate "Aggiungi Referente" %}</a></li>
+                <li><a class="dropdown-item" href="{% url 'compliance:lista_fornitori_azienda' %}?azienda_id={{ azienda.pk }}"><i class="bi bi-truck me-2"></i>{% translate "Fornitori" %}</a></li>
+                <li><a class="dropdown-item" href="{% url 'compliance:whistleblowing_portal' %}?azienda_id={{ azienda.pk }}"><i class="bi bi-megaphone me-2"></i>{% translate "Portale Whistleblowing" %}</a></li>
+                <li>
+                  <button class="dropdown-item js-copy-link" type="button" data-link="{% url 'compliance:whistleblowing_portal' %}?azienda_id={{ azienda.pk }}">
+                    <i class="bi bi-clipboard me-2"></i>{% translate "Copia link Portale Whistleblowing" %}
+                  </button>
+                </li>
               </ul>
             </div>
           </div>
@@ -110,3 +121,98 @@
 
 </div>
 {% endblock content %}
+<script>
+  document.querySelectorAll('.js-copy-link').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const link = btn.getAttribute('data-link');
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(link);
+      } else {
+        const input = document.createElement('textarea');
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
+      btn.textContent = 'Link copiato';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-clipboard me-2"></i>Copia link Portale Whistleblowing';
+      }, 1500);
+    });
+  });
+</script>
+<table class="table align-middle">
+    <thead>
+        <tr>
+            <th>Fornitore</th>
+            <th>Stato</th>
+            <th>Conformità CLUSIT</th>
+            <th>Azioni</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for fornitore in fornitori %}
+        <tr>
+            <td><strong>{{ fornitore.ragione_sociale }}</strong></td>
+            <td>
+                <span class="badge bg-{{ fornitore.get_status_color }}">
+                    {{ fornitore.get_stato_valutazione_display }}
+                </span>
+            </td>
+            <td>
+                {% if fornitore.stato_valutazione == 'COMPILATO' or fornitore.stato_valutazione == 'REVISIONATO' %}
+                    <div class="progress" style="height: 20px; width: 150px;">
+                        <div class="progress-bar bg-{{ fornitore.get_status_color }}" 
+                             role="progressbar" 
+                             style="width: {{ fornitore.get_compliance_score }}%;" 
+                             aria-valuenow="{{ fornitore.get_compliance_score }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ fornitore.get_compliance_score }}%
+                        </div>
+                    </div>
+                {% else %}
+                    <span class="text-muted small">In attesa di dati...</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{% url 'compliance:dettaglio_risposte_fornitore' fornitore.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-search"></i> Analizza
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<div class="card bg-danger text-white">
+    <div class="card-body">
+        <h5>Whistleblowing</h5>
+        <p>Hai {{ segnalazioni_aperte_count }} nuove segnalazioni da gestire.</p>
+        <a href="{% url 'compliance:lista_segnalazioni' %}" class="btn btn-light btn-sm">Gestisci ora</a>
+    </div>
+</div>
+<div class="col-xl-3 col-md-6 mb-4">
+    <div class="card border-left-danger shadow h-100 py-2">
+        <div class="card-body">
+            <div class="row no-gutters align-items-center">
+                <div class="col mr-2">
+                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                        Whistleblowing (Segnalazioni)
+                    </div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                        {{ segnalazioni_aperte_count }} Nuove
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <i class="bi bi-megaphone-fill fa-2x text-gray-300" style="font-size: 2rem; color: #e74a3b;"></i>
+                </div>
+            </div>
+            <div class="mt-3">
+                <a href="{% url 'compliance:lista_segnalazioni' %}" class="btn btn-sm btn-outline-danger w-100">
+                    Gestisci Segnalazioni
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

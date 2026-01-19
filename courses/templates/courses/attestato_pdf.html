@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        /* Configuriamo la pagina per occupare l'intero foglio senza margini di sistema */
+        @page { 
+            size: a4 Portrait; 
+            margin: 0.5cm; 
+        }
+        
+        body { 
+            font-family: 'Helvetica', 'Arial', sans-serif; 
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Contenitore principale con altezza bloccata per evitare la seconda pagina */
+        .main-container {
+            border: 12px solid {{ colore_primario }};
+            height: 17.5cm; /* Ridotto leggermente per sicurezza */
+            padding: 20px;
+            overflow: hidden; /* Impedisce al contenuto di strabordare */
+        }
+
+        .inner-border {
+            border: 2px solid {{ colore_primario }};
+            height: 100%;
+            text-align: center;
+        }
+
+        .logo-container {
+            margin-top: 15px;
+            height: 70px;
+        }
+
+        .logo {
+            height: 200px;
+        }
+
+        h1 { 
+            color: {{ colore_primario }}; 
+            font-size: 40px; 
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        .name-label { font-size: 16px; margin-top: 15px; }
+
+        .studente-nome { 
+            font-size: 30px; 
+            font-weight: bold; 
+            color: #000;
+            margin: 5px 0;
+            border-bottom: 1px solid #ccc;
+            display: inline-block;
+            padding: 0 40px;
+        }
+
+        .corso-nome { 
+            font-size: 22px; 
+            font-weight: bold; 
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .info-bottom {
+            margin-top: 25px;
+            font-size: 16px;
+        }
+
+        .footer-info { 
+            margin-top: 30px;
+            font-size: 11px; 
+            color: #666; 
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="inner-border">
+            <div class="logo-container">
+                {% if logo_path %}
+                    <img src="{{ logo_path }}" class="logo">
+                {% endif %}
+            </div>
+
+            <h1>Attestato di Formazione</h1>
+            
+            <p class="name-label">Si certifica che lo studente</p>
+            <div class="studente-nome">{{ studente }}</div>
+            
+            <p class="name-label">ha completato con profitto il corso formativo in:</p>
+            <div class="corso-nome">{{ corso }}</div>
+
+            <div class="info-bottom">
+                Data di rilascio: <strong>{{ data|date:"d F Y" }}</strong>
+            </div>
+
+            <div class="footer-info">
+                Codice di Verifica: <strong>{{ codice }}</strong><br>
+                <em>Documento valido ai fini della conformita' normativa (GDPR / NIS2)</em><br>
+                Generato da Piattaforma Compliance Digitale
+            </div>
+        </div>
+    </div>
+</body>
+</html>

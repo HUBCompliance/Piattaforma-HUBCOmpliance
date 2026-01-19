@@ -38,68 +38,12 @@ class UserResource(resources.ModelResource):
         report_skipped = True
 
     def after_import_row(self, row, row_result, **kwargs):
-        """
-        Eseguito dopo la creazione dell'utente. Genera il link monouso 
-        e invia la mail tramite EmailJS.
-        """
         instance = row_result.instance
-        
         if instance and instance.email:
-            try:
-                # 1. Recupero configurazione
-                config = ImpostazioniSito.objects.first()
-                if not config or not config.email_service_id:
-                    print("⚠️ Configurazione EmailJS non trovata in Impostazioni Sito.")
-                    return
-
-                # 2. Sicurezza: Se l'utente non ha password, ne impostiamo una "inutilizzabile"
-                # Questo rende il token di sicurezza generato da Django stabile e valido.
-                if not instance.password:
-                    instance.set_unusable_password()
-                    instance.save()
-
-                # 3. Generazione Token Monouso (UID + TOKEN)
-                uid = urlsafe_base64_encode(force_bytes(instance.pk))
-                token = default_token_generator.make_token(instance)
-                
-                # 4. Costruzione URL CORRETTO (Salto la pagina mail e vado alla password)
-                domain = "http://127.0.0.1:8000"  # Cambia in https://tuodominio.it in produzione
-                action_url = f"{domain}/reset/{uid}/{token}/"
-                
-                print(f"DEBUG - Link generato per {instance.username}: {action_url}")
-
-                # 5. Preparazione dati per EmailJS
-                template_params = {
-                    "to_email": instance.email,
-                    "user_name": f"{instance.first_name} {instance.last_name}" if instance.first_name else instance.username,
-                    "ruolo": instance.ruolo,
-                    "azienda_nome": instance.azienda.nome if instance.azienda else "Non specificata",
-                    "data_invio": timezone.now().strftime("%d/%m/%Y"),
-                    "action_url": action_url, 
-                }
-
-                payload = {
-                    "service_id": config.email_service_id,
-                    "template_id": config.email_template_id,
-                    "user_id": config.email_public_key,
-                    "accessToken": config.email_private_key,
-                    "template_params": template_params
-                }
-
-                # 6. Invio API
-                response = requests.post(
-                    "https://api.emailjs.com/api/v1.0/email/send", 
-                    json=payload, 
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    print(f"✅ Email di attivazione inviata a: {instance.email}")
-                else:
-                    print(f"❌ Errore EmailJS: {response.text}")
-
-            except Exception as e:
-                print(f"⚠️ Errore critico dopo importazione riga: {e}")
+             from .views import trigger_set_password_email
+             # Invia la mail di benvenuto/set password dopo l'importazione
+             trigger_set_password_email(None, instance)
+             print(f"✅ Email inviata per {instance.email}")
 
 # ==============================================================================
 # 1. ADMIN PER IL MODELLO AZIENDA
@@ -111,22 +55,24 @@ class AziendaAdmin(admin.ModelAdmin):
     list_filter = ('is_active', 'data_creazione')
     search_fields = ('nome', 'p_iva')
     filter_horizontal = ('manager_users',)
-    
+
     fieldsets = (
         ('Dettagli Azienda', {'fields': ('nome', 'p_iva', 'indirizzo', 'logo_principale', 'logo_attestato')}),
         ('Gestione e Stato', {'fields': ('is_active', 'manager_users')}),
         ('Configurazione Moduli Attivi', {
             'fields': (
                 ('mod_cruscotto', 'mod_storico_audit'),
-                ('mod_trattamenti', 'mod_documenti', 'mod_audit'), 
+                ('mod_trattamenti', 'mod_documenti', 'mod_audit'),
                 ('mod_videosorveglianza', 'mod_tia', 'mod_organigramma'),
                 ('mod_csirt', 'mod_incidenti', 'mod_richieste', 'mod_formazione'),
+                ('mod_asset', 'mod_analisi_rischi', 'mod_rete'),
+                ('mod_fornitori', 'mod_whistleblowing'),
             )
         }),
     )
 
 # ==============================================================================
-# 2. ALTRI MODELLI
+# 2. ALTRI MODELLI ANAGRAFICI
 # ==============================================================================
 
 @admin.register(Consulente)
@@ -142,20 +88,25 @@ class NotaAziendaAdmin(admin.ModelAdmin):
 class ProdottoAdmin(admin.ModelAdmin):
     list_display = ('nome', 'prezzo', 'is_active')
 
+if 'AdminReferente' in globals():
+    @admin.register(AdminReferente)
+    class AdminReferenteAdmin(admin.ModelAdmin):
+        list_display = ('user',)
+
 # ==============================================================================
-# 3. ADMIN PER IL MODELLO USER (Import/Export)
+# 3. ADMIN PER IL MODELLO USER (CustomUser con Import/Export)
 # ==============================================================================
 
 class CustomUserAdmin(BaseUserAdmin, ImportExportActionModelAdmin):
     resource_class = UserResource
-    
+
     fieldsets = BaseUserAdmin.fieldsets + (
         (_('Ruoli e Associazione Azienda'), {'fields': ('ruolo', 'azienda', 'is_dpo')}),
     )
     list_display = BaseUserAdmin.list_display + ('ruolo', 'azienda')
     list_filter = BaseUserAdmin.list_filter + ('ruolo', 'azienda')
 
-# Registrazione dell'utente
+# Registrazione sicura del modello User
 try:
     admin.site.unregister(User)
 except admin.sites.NotRegistered:
@@ -163,7 +114,5 @@ except admin.sites.NotRegistered:
 
 admin.site.register(User, CustomUserAdmin)
 
-if 'AdminReferente' in globals():
-    @admin.register(AdminReferente)
-    class AdminReferenteAdmin(admin.ModelAdmin):
-        list_display = ('user',)
+# NOTA: Il modello AuditLog è stato spostato in compliance/admin.py 
+# per mantenere la logica di business separata dall'anagrafica utenti.

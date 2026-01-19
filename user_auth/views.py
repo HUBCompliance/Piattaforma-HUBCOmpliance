@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.forms import PasswordChangeForm 
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import (
     PasswordResetView as DjangoPasswordResetView,
     PasswordResetDoneView as DjangoPasswordResetDoneView,
@@ -12,111 +12,147 @@ from django.contrib.auth.views import (
 from django.utils.translation import gettext_lazy as _
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from django.contrib import messages 
-from django.contrib.sites.shortcuts import get_current_site
-from django.http import HttpResponse, JsonResponse 
-import requests
-import urllib3
+from django.contrib import messages
+from django.http import HttpResponse, JsonResponse
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.signals import user_login_failed  # <--- Importa il segnale
 
-# Importazioni locali
+import requests
+import logging
+
+# Importazioni locali (Modelli e Form)
 from .models import CustomUser as User, Azienda, Consulente
 from .forms import (
-    LoginForm, RegisterForm, CustomPasswordResetForm, 
+    LoginForm, RegisterForm, CustomPasswordResetForm,
     ReferenteUpdateForm, ConsulenteUpdateForm, ProfiloStudenteForm
 )
 
-# Importazioni da app esterne
-from courses.models import ImpostazioniSito, IscrizioneCorso
+logger = logging.getLogger(__name__)
 
 # --- HELPER FUNCTIONS ---
 
 def trigger_set_password_email(request, user):
-    """Invia l'email per impostare la password iniziale (richiesta da compliance)."""
+    """
+    Invia l'email tramite EmailJS forzando l'URL di produzione.
+    L'importazione di ImpostazioniSito è interna per evitare circular imports.
+    """
+    from courses.models import ImpostazioniSito
+
     try:
-        current_site = get_current_site(request)
-        from django.contrib.auth.tokens import default_token_generator
+        # Generazione UID e Token
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        protocol = 'https' if request.is_secure() else 'http'
-        action_url = f"{protocol}://{current_site.domain}{reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})}"
-        
+
+        # URL FORZATO DI PRODUZIONE - Nessun calcolo automatico per evitare 127.0.0.1
+        action_url = f"https://gmuggit.pythonanywhere.com/reset/{uid}/{token}/"
+
+        # Recupero configurazione EmailJS
         config = ImpostazioniSito.objects.first()
+        if not config:
+            print(">>> [ERRORE CRITICO] Tabella ImpostazioniSito vuota nel database!")
+            return False
+
         payload = {
             'service_id': config.email_service_id,
             'template_id': config.email_template_id,
             'user_id': config.email_public_key,
             'accessToken': config.email_private_key,
-            'template_params': {'user_name': user.username, 'to_email': user.email, 'action_url': action_url}
+            'template_params': {
+                'user_name': user.username,
+                'to_email': user.email,
+                'action_url': action_url
+            }
         }
-        requests.post("https://api.emailjs.com/api/v1.0/email/send", json=payload, timeout=10)
-        return True
-    except:
+
+        # LOG DI CONTROLLO IN TEMPO REALE (Visibili nel server.log di PythonAnywhere)
+        print(f"\n>>> [TEST-FINALE-PRODUZIONE] Destinatario: {user.email}")
+        print(f">>> [INVIO EMAILJS] URL Produzione: {action_url}")
+
+        response = requests.post(
+            "https://api.emailjs.com/api/v1.0/email/send",
+            json=payload,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            print(f">>> [SUCCESS] EmailJS ha accettato la richiesta per {user.email}\n")
+            return True
+        else:
+            print(f">>> [ERROR] EmailJS errore {response.status_code}: {response.text}\n")
+            return False
+
+    except Exception as e:
+        print(f">>> [EXCEPTION] Errore in trigger_set_password_email: {str(e)}\n")
         return False
 
-def is_profilo_user(user): 
+def is_profilo_user(user):
     return user.is_authenticated and user.ruolo in ['STUDENTE', 'REFERENTE', 'CONSULENTE']
 
-# --- VISTE PRINCIPALI ---
+# --- VISTE DI AUTENTICAZIONE ---
 
 def login_view(request):
     if request.user.is_authenticated:
-        # Se l'utente è già loggato e prova ad andare su /login, lo smistiamo subito
+        # Usa redirect_after_login per coerenza
         return redirect_after_login(request.user)
 
     if request.method == 'POST':
-        form = LoginForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
+        from django.contrib.auth import authenticate # Assicurati che sia importato
+        email = request.POST.get('username') # Il LoginForm di solito usa 'username' o 'email'
+        password = request.POST.get('password')
+        user = authenticate(request, username=email, password=password)
+
+        if user is not None:
             login(request, user)
-            messages.success(request, f"Benvenuto, {user.username}!")
-            # Chiamiamo la funzione helper per il reindirizzamento
             return redirect_after_login(user)
         else:
-            messages.error(request, "Credenziali non valide. Riprova.")
+            messages.error(request, "Credenziali non valide.")
     
     return render(request, 'registration/login.html', {'form': LoginForm()})
-
 def redirect_after_login(user):
-    """
-    Helper function per gestire la logica di smistamento in base al ruolo.
-    Garantisce che ogni figura NIS2 atterri sulla sua area di competenza.
-    """
     if user.ruolo == 'CONSULENTE':
-        return redirect('/compliance/consulente/')
+        return redirect('compliance:dashboard_consulente')
     elif user.ruolo == 'REFERENTE':
-        return redirect('/compliance/dashboard/') # URL del cruscotto operativo
+        return redirect('compliance:dashboard_compliance')
     elif user.ruolo == 'STUDENTE':
-        return redirect('/dashboard_studente/') # Dashboard e-learning
+        # Qui usa il nome corretto definito nel tuo urls.py
+        return redirect('compliance:dashboard_studente') 
     else:
-        return redirect('/') # Home generica per ADMIN o ruoli non definiti
+        return redirect('/')
 
 def logout_view(request):
     logout(request)
-    return redirect('/login/') 
+    return redirect('/login/')
 
 def register_view(request):
-    return render(request, 'registration/register.html', {'form': RegisterForm()})
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Registrazione effettuata con successo. Ora puoi accedere.")
+            return redirect('login')
+    else:
+        form = RegisterForm()
+    return render(request, 'registration/register.html', {'form': form})
+
+# --- DASHBOARD E PROFILO ---
 
 @login_required
 def dashboard_studente(request):
     user = request.user
-    
-    # Se Mario è loggato ma il suo ruolo nel DB è REFERENTE, 
-    # verrà mandato alla compliance (che mostra le aziende).
-    if user.ruolo == 'REFERENTE': 
-        return redirect('dashboard_compliance')
-    
-    # Se è uno STUDENTE, deve caricare questo:
+    from courses.models import IscrizioneCorso # Import locale
+
+    if user.ruolo == 'REFERENTE':
+        return redirect('compliance:dashboard_compliance')
+
     iscrizioni = IscrizioneCorso.objects.filter(studente=user).select_related('corso')
     return render(request, 'dashboard_studente.html', {
-        'iscrizioni_list': iscrizioni, 
+        'iscrizioni': iscrizioni,
         'studente_name': user.username
     })
 
 @login_required
 @user_passes_test(is_profilo_user)
-def profilo_utente(request): 
-    """Vista del profilo (Risolve l'AttributeError)."""
+def profilo_utente(request):
     user = request.user
     if user.ruolo == 'CONSULENTE':
         form_class, template = ConsulenteUpdateForm, 'user_auth/profilo_consulente.html'
@@ -147,32 +183,33 @@ def profilo_utente(request):
         'titolo_pagina': "Gestione Profilo"
     })
 
-# --- RESET PASSWORD ---
+# --- VISTE PERSONALIZZATE RESET PASSWORD ---
+
 class CustomPasswordResetView(DjangoPasswordResetView):
     form_class = CustomPasswordResetForm
     template_name = 'registration/password_reset_form.html'
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        user = User.objects.filter(email=form.cleaned_data['email']).first()
-        if user: trigger_set_password_email(self.request, user)
-        return response
+    success_url = reverse_lazy('password_reset_done')
 
-class CustomPasswordResetDoneView(DjangoPasswordResetDoneView): template_name = 'registration/password_reset_done.html'
-class CustomPasswordResetConfirmView(DjangoPasswordResetConfirmView): template_name = 'registration/password_reset_confirm.html'
-class CustomPasswordResetCompleteView(DjangoPasswordResetCompleteView): template_name = 'registration/password_reset_complete.html'
+    def form_valid(self, form):
+        # Sovrascriviamo per evitare l'invio SMTP standard di Django
+        email = form.cleaned_data.get('email')
+        user = User.objects.filter(email=email).first()
+
+        if user:
+            trigger_set_password_email(self.request, user)
+
+        return redirect(self.success_url)
+
+class CustomPasswordResetDoneView(DjangoPasswordResetDoneView):
+    template_name = 'registration/password_reset_done.html'
+
+class CustomPasswordResetConfirmView(DjangoPasswordResetConfirmView):
+    template_name = 'registration/password_reset_confirm.html'
+
+class CustomPasswordResetCompleteView(DjangoPasswordResetCompleteView):
+    template_name = 'registration/password_reset_complete.html'
+
+# --- EXPORT ---
 
 def export_aziende_excel(request):
-    return HttpResponse("Export logic...")
-def register_view(request):
-    """
-    Vista per la registrazione nuovi utenti.
-    """
-    if request.method == 'POST':
-        form = RegisterForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Registrazione effettuata con successo. Ora puoi accedere.")
-            return redirect('login')
-    else:
-        form = RegisterForm()
-    return render(request, 'registration/register.html', {'form': form})
+    return HttpResponse("Logica di esportazione aziende non ancora implementata.")

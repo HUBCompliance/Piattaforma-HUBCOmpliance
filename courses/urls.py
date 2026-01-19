@@ -1,17 +1,24 @@
 from django.urls import path
 from . import views
-
-# Questa app al momento non ha viste pubbliche dedicate (tutto passa da user_auth o compliance),
-# ma il file deve esistere per evitare errori di inclusione in core/urls.py.
-# Se in futuro aggiungerai viste specifiche per i corsi (es. catalogo pubblico), le metterai qui.
+app_name = 'courses'
 
 urlpatterns = [
-    # Lasciamo vuoto per ora, o aggiungiamo una vista placeholder se necessario.
-    # Esempio futuro: path('', views.lista_corsi_pubblica, name='lista_corsi'),
+    # Rotta principale del corso (quella che causava l'errore NoReverseMatch)
+    path('corso/<int:course_id>/', views.dettaglio_corso, name='dettaglio_corso'),
+    path('dashboard/registro-formazione/', views.registro_aziendale_view, name='registro_aziendale'),
+    path('dashboard/registro-formazione/export/', views.esporta_registro_excel, name='esporta_registro_excel'),
+    path('dashboard/registro-formazione/elimina/<int:voce_id>/', views.elimina_voce_registro, name='elimina_voce_registro'),
+    
+    # Rotta per completare il modulo (usata dal tasto nel template)
+    path('modulo/completa/<int:modulo_id>/', views.completa_modulo, name='completa_modulo'),
+    
+    # Rotta per i quiz (usata dal tasto 'Inizia Quiz')
+    path('quiz/<int:quiz_id>/', views.take_test, name='take_test'),
     
     # --- Generazione PDF Attestato ---
-    # Questa è l'unica vista "di servizio" che potrebbe stare qui
     path('attestato/<int:attestato_id>/pdf/', views.genera_attestato_pdf, name='genera_attestato_pdf'),
+    
+    # --- Servizi Cybersecurity ---
     path('consulente/avvia-scansione/<int:azienda_id>/', views.avvia_scansione_deashed, name='avvia_scansione_deashed'),
     path('analisi-dns/<int:azienda_id>/', views.analisi_dns_view, name='analisi_dns_view'),
 ]

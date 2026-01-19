@@ -3,17 +3,21 @@
 # ==============================================================================
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
 from django.utils import timezone 
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
-from django.db.models import Sum, Count, Q, Prefetch 
+from django.db.models import Sum, Count, Q, Prefetch, F
 from django.http import HttpResponse, JsonResponse 
 from django.db import transaction 
 from django.forms.models import inlineformset_factory 
 from django.forms import modelformset_factory
 from django import forms 
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from functools import wraps
+from datetime import timedelta
+from django.shortcuts import redirect
+from .utils import clean_image_metadata
 
 
 # Import dai tuoi modelli (Assicurati che i percorsi siano esatti)
@@ -22,20 +26,47 @@ from courses.models import (
     Quiz, Domanda, Risposta, Attestato, ImpostazioniSito
 )
 from user_auth.models import CustomUser as User, Azienda, Consulente, Prodotto, AdminReferente
+# compliance/forms.py
+
 from .models import (
-  AuditCategoria, AuditDomanda, AuditSession, AuditRisposta,
-    Incidente, ReferenteCSIRT, ContattoInternoCSIRT, NotificaIncidente, 
-    SecurityAudit, SecurityControl, SecurityResponse,
-    Compito, DomandaChecklist, Trattamento, DocumentoAziendale, Asset, Software,AllegatoNotifica
+    Azienda, 
+    Trattamento, 
+    RichiestaInteressato, 
+    RuoloPrivacy,
+    ValutazioneTIA, 
+    Incidente, 
+    Asset, 
+    Software, 
+    DocumentoAziendale,
+    Videosorveglianza, 
+    ConfigurazioneRete, 
+    ComponenteRete,
+    ReferenteCSIRT, 
+    ContattoInternoCSIRT, 
+    NotificaIncidente,
+    AllegatoNotifica,
+    AuditSession, 
+    AuditDomanda, 
+    SecurityAudit, 
+    Compito,
+    DomandaFornitore, 
+    RispostaQuestionarioFornitore,
+    Fornitore,
+    AllegatoFornitore,
+    SegnalazioneWhistleblowing,
+    AllegatoWhistleblowing,
+    ConfigurazioneWhistleblowing
 )
 from .forms import (
     TrattamentoForm, DocumentoAziendaleForm, VersioneDocumentoForm,
     IncidenteForm, RichiestaInteressatoForm, AuditChecklistForm,
     ReferenteStudenteForm, ConsulenteCreaReferenteForm,
     ConsulenteCompitoForm, AssetForm, SoftwareForm, RuoloPrivacyForm, TIAForm, VideosorveglianzaForm,
-    AziendaModuliForm, ReferenteCSIRTForm, ContattoInternoCSIRTForm, NotificaIncidenteForm, 
+    AziendaModuliForm, ReferenteCSIRTForm, ContattoInternoCSIRTForm, NotificaIncidenteForm, NotificaIncidenteUpdateForm, 
     CSIRTTemplateForm, 
-    ConfigurazioneReteForm, ComponenteReteFormSet, RuoloPrivacyFormSet,
+    ConfigurazioneReteForm, ComponenteReteFormSet, RuoloPrivacyFormSet, RuoloPrivacyForm, Compito,
+    RispostaQuestionarioFornitoreForm,
+    FornitoreForm
 )
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, Prefetch 
@@ -55,6 +86,7 @@ import os
 import json 
 from django.conf import settings 
 import requests
+from django.contrib import admin
 
 # === NUOVE IMPORTAZIONI NECESSARIE PER GEMINI ===
 from google import genai 
@@ -81,30 +113,316 @@ def get_azienda_current(request):
         return get_object_or_404(Azienda, id=azienda_id)
     return None
 
+def build_vendor_recommendations(risultati):
+    raccomandazioni = []
+
+    gestione = risultati.get('GESTIONE', 0)
+    it = risultati.get('IT', 0)
+    fisica = risultati.get('FISICA', 0)
+    generale = risultati.get('GENERALE', 0)
+
+    if gestione < 60:
+        raccomandazioni.append({
+            'priorita': 'Alta',
+            'area': 'Gestione Sicurezza',
+            'titolo': 'Governance e policy',
+            'descrizione': 'Formalizzare policy di sicurezza, ruoli e responsabilita; prevedere approvazione e revisione periodica.',
+            'owner': 'DPO / Compliance',
+            'orizzonte': '30-60 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Alta',
+            'area': 'Gestione Sicurezza',
+            'titolo': 'Gestione terze parti',
+            'descrizione': 'Introdurre un processo di vendor risk management con SLA, requisiti minimi e due diligence.',
+            'owner': 'Procurement',
+            'orizzonte': '60 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Media',
+            'area': 'Gestione Sicurezza',
+            'titolo': 'Risk assessment',
+            'descrizione': 'Attivare un processo strutturato di valutazione e trattamento dei rischi con evidenze documentali.',
+            'owner': 'Risk Manager',
+            'orizzonte': '90 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Media',
+            'area': 'Gestione Sicurezza',
+            'titolo': 'Formazione e awareness',
+            'descrizione': 'Pianificare formazione annuale e campagne di sensibilizzazione con tracciamento delle presenze.',
+            'owner': 'HR / Security',
+            'orizzonte': '90 gg',
+        })
+    if it < 60:
+        raccomandazioni.append({
+            'priorita': 'Alta',
+            'area': 'Sicurezza IT',
+            'titolo': 'Identita e accessi',
+            'descrizione': 'Abilitare MFA, revisione periodica degli accessi e principio del minimo privilegio.',
+            'owner': 'IT Security',
+            'orizzonte': '30-60 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Alta',
+            'area': 'Sicurezza IT',
+            'titolo': 'Backup e recovery',
+            'descrizione': 'Verificare backup offsite, test periodici di restore e RPO/RTO documentati.',
+            'owner': 'IT Operations',
+            'orizzonte': '60 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Media',
+            'area': 'Sicurezza IT',
+            'titolo': 'Vulnerability management',
+            'descrizione': 'Pianificare vulnerability assessment e patching con metriche di copertura e tempi di remediation.',
+            'owner': 'IT Security',
+            'orizzonte': '90 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Media',
+            'area': 'Sicurezza IT',
+            'titolo': 'Logging e monitoraggio',
+            'descrizione': 'Centralizzare log critici e definire regole di alerting per eventi anomali.',
+            'owner': 'SOC / IT Security',
+            'orizzonte': '90 gg',
+        })
+    if fisica < 60:
+        raccomandazioni.append({
+            'priorita': 'Media',
+            'area': 'Sicurezza Fisica',
+            'titolo': 'Accessi ai locali',
+            'descrizione': 'Rafforzare i controlli di accesso e i registri di ingresso nei locali critici.',
+            'owner': 'Facility',
+            'orizzonte': '90 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Media',
+            'area': 'Sicurezza Fisica',
+            'titolo': 'Controllo visitatori',
+            'descrizione': 'Formalizzare procedure di registrazione e accompagnamento dei visitatori.',
+            'owner': 'Facility',
+            'orizzonte': '90 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Bassa',
+            'area': 'Sicurezza Fisica',
+            'titolo': 'Videosorveglianza e log',
+            'descrizione': 'Verificare copertura e conservazione log, con procedure di revisione periodica.',
+            'owner': 'Facility / Security',
+            'orizzonte': '120 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Bassa',
+            'area': 'Sicurezza Fisica',
+            'titolo': 'Protezione ambientale',
+            'descrizione': 'Valutare sensori ambientali e piani di continuita per eventi fisici.',
+            'owner': 'Facility',
+            'orizzonte': '120 gg',
+        })
+
+    if generale < 60:
+        raccomandazioni.append({
+            'priorita': 'Alta',
+            'area': 'Generale',
+            'titolo': 'Piano di miglioramento',
+            'descrizione': 'Definire un piano di remediation con owner, tempi e priorita condivise.',
+            'owner': 'Compliance',
+            'orizzonte': '30-60 gg',
+        })
+        raccomandazioni.append({
+            'priorita': 'Alta',
+            'area': 'Generale',
+            'titolo': 'Incident response',
+            'descrizione': 'Formalizzare procedure di gestione incidenti e canali di escalation.',
+            'owner': 'Security',
+            'orizzonte': '60 gg',
+        })
+    elif generale < 85:
+        raccomandazioni.append({
+            'priorita': 'Media',
+            'area': 'Generale',
+            'titolo': 'Rafforzamento controlli',
+            'descrizione': 'Consolidare i controlli esistenti e misurare periodicamente l efficacia.',
+            'owner': 'Compliance',
+            'orizzonte': '90 gg',
+        })
+    else:
+        raccomandazioni.append({
+            'priorita': 'Bassa',
+            'area': 'Generale',
+            'titolo': 'Monitoraggio continuo',
+            'descrizione': 'Mantenere le pratiche in essere con verifiche periodiche e audit annuali.',
+            'owner': 'Security',
+            'orizzonte': '120 gg',
+        })
+
+    return raccomandazioni
+
+def notify_referenti_whistleblowing(request, azienda):
+    consulenti = azienda.manager_users.filter(ruolo='CONSULENTE').exclude(email='')
+    if not consulenti.exists():
+        return
+
+    config = ImpostazioniSito.objects.first()
+    if not config or not config.email_service_id or not config.email_public_key or not config.email_template_id:
+        return
+
+    subject = "Nuova segnalazione Whistleblowing"
+    message_html = (
+        "E stata depositata una nuova segnalazione Whistleblowing per la tua azienda. "
+        "Il Consulente incaricato ha gia preso in carico la pratica."
+    )
+
+    base_url = "https://api.emailjs.com/api/v1.0/email/send"
+    for referente in consulenti:
+        payload = {
+            "service_id": config.email_service_id,
+            "template_id": config.email_template_id,
+            "user_id": config.email_public_key,
+            "accessToken": config.email_private_key,
+            "template_params": {
+                "to_email": referente.email,
+                "subject": subject,
+                "message_html": message_html,
+            }
+        }
+        try:
+            requests.post(base_url, json=payload, timeout=10)
+        except Exception:
+            pass
+
+
+def notify_consulenti_fornitore(request, fornitore):
+    azienda = fornitore.azienda_cliente
+    consulenti = azienda.manager_users.filter(ruolo='CONSULENTE').exclude(email='')
+    if not consulenti.exists():
+        return
+
+    config = ImpostazioniSito.objects.first()
+    if not config or not config.email_service_id or not config.email_public_key or not config.email_fornitori_template_id:
+        return
+
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    link_lista = f"{protocol}://{domain}/compliance/fornitori/?azienda_id={azienda.pk}"
+
+    subject = f"Questionario fornitore compilato - {azienda.nome}"
+    message_html = (
+        f"<p>Il fornitore <strong>{fornitore.ragione_sociale}</strong> ha completato il questionario.</p>"
+        f"<p>Accedi alla piattaforma per la revisione: <a href=\"{link_lista}\">{link_lista}</a></p>"
+    )
+
+    base_url = "https://api.emailjs.com/api/v1.0/email/send"
+    for consulente in consulenti:
+        payload = {
+            "service_id": config.email_service_id,
+            "template_id": config.email_fornitori_template_id,
+            "user_id": config.email_public_key,
+            "accessToken": config.email_private_key,
+            "template_params": {
+                "to_email": consulente.email,
+                "subject": subject,
+                "message_html": message_html,
+                "fornitore_nome": fornitore.ragione_sociale,
+                "azienda_nome": azienda.nome,
+                "link_lista": link_lista,
+            }
+        }
+        try:
+            requests.post(base_url, json=payload, timeout=10)
+        except Exception:
+            pass
+
+from functools import wraps
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.http import HttpResponse
+
+# --- SOSTITUISCI DA QUI ---
 def role_required(view_func=None, allowed_roles=None):
     """
-    Decoratore per limitare l'accesso alle view in base al ruolo.
-    Uso:
-      @role_required
-      @role_required(allowed_roles=['CONSULENTE'])
+    Decoratore flessibile: funziona sia come @role_required che come @role_required(allowed_roles=['...'])
     """
     if allowed_roles is None:
         allowed_roles = ['REFERENTE', 'CONSULENTE']
-
+    
+    # Questa è la funzione che effettivamente avvolge la vista
     def decorator(func):
         @wraps(func)
         def _wrapped_view(request, *args, **kwargs):
+            # 1. Verifica Autenticazione
             if not request.user.is_authenticated:
                 return redirect('login')
-            if request.user.ruolo not in allowed_roles:
-                return redirect('login')
+            
+            # 2. Normalizzazione e Controllo Ruolo
+            user_role = str(request.user.ruolo).upper().strip()
+            roles_upper = [r.upper() for r in allowed_roles]
+            
+            if user_role not in roles_upper:
+                return HttpResponse(
+                    f"<h2>Accesso Negato</h2>"
+                    f"<p>Utente: {request.user.email} - Ruolo attuale: <b>{request.user.ruolo}</b></p>"
+                    f"<p>Ruoli autorizzati: {roles_upper}</p>"
+                    f"<hr><p><a href='/auth/logout/'>Fai Logout e riprova</a></p>",
+                    status=403
+                )
+            
+            # 3. Esecuzione Vista
             return func(request, *args, **kwargs)
-
         return _wrapped_view
 
-    if callable(view_func):
-        return decorator(view_func)
-    return decorator
+    # LOGICA IBRIDA:
+    # Se view_func è None, il decoratore è stato chiamato con le parentesi: @role_required()
+    if view_func is None:
+        return decorator
+    
+    # Se view_func NON è None, è stato usato senza parentesi: @role_required
+    # In questo caso view_func è la funzione della vista stessa.
+    return decorator(view_func)
+# --- FINO A QUI ---
+
+@login_required
+@role_required(allowed_roles=['REFERENTE', 'CONSULENTE'])
+def whistleblowing_info(request):
+    azienda = get_azienda_current(request)
+    if not azienda:
+        return redirect('compliance:dashboard_compliance')
+
+    wb_config = ConfigurazioneWhistleblowing.objects.filter(azienda=azienda).first()
+    wb_anno = timezone.now().year
+    wb_segnalazioni_annuali = SegnalazioneWhistleblowing.objects.filter(
+        azienda=azienda,
+        data_invio__year=wb_anno
+    ).count()
+
+    return render(request, 'compliance/whistleblowing_info.html', {
+        'azienda': azienda,
+        'whistleblowing_config': wb_config,
+        'whistleblowing_year': wb_anno,
+        'whistleblowing_count': wb_segnalazioni_annuali,
+    })
+
+@login_required
+@role_required(allowed_roles=['CONSULENTE'])
+def dashboard_consulente(request):
+    user = request.user
+    aziende_list = Azienda.objects.filter(manager_users=user).order_by('nome')
+    aziende_csirt_ref = Azienda.objects.filter(
+        referente_csirt__referente_user=user
+    ).order_by('nome')
+    fornitori_compilati = Fornitore.objects.filter(
+        azienda_cliente__in=aziende_list,
+        stato_valutazione='COMPILATO'
+    ).order_by('-data_creazione')
+
+    context = {
+        'aziende_list': aziende_list,
+        'aziende_csirt_ref': aziende_csirt_ref,
+        'fornitori_compilati': fornitori_compilati,
+    }
+
+    return render(request, 'compliance/dashboard_consulente.html', context)
 
 # === FUNZIONE DI CHIAMATA ALL'AI (IMPLEMENTAZIONE FINALE) ===
 def generate_gemini_response(prompt):
@@ -152,47 +470,13 @@ def generate_gemini_response(prompt):
 # ==============================================================================
 # 2. VISTE CONSULENTE
 # ==============================================================================
-
-@login_required
-def dashboard_consulente(request):
-    """
-    Dashboard Master per il Consulente: mostra tutte le aziende gestite.
-    """
-    if request.user.ruolo != 'CONSULENTE': return redirect('dashboard_studente')
-    
-    user = request.user
-    
-    # Pulizia della sessione
-    if 'consulente_azienda_id' in request.session:
-        del request.session['consulente_azienda_id']
-    
-    try:
-        consulente = user.consulente
-    except Consulente.DoesNotExist:
-        messages.error(request, "Nessun profilo Consulente associato al tuo utente.")
-        return render(request, 'compliance/dashboard_consulente.html', {'aziende_list': []})
-
-    # Query robusta per recuperare TUTTE le aziende associate
-    aziende = Azienda.objects.filter(manager_users=user).distinct().order_by('nome')
-    
-    # LOGICA CSIRT
-    aziende_csirt_ref = Azienda.objects.filter(
-        manager_users=user,                   
-        referente_csirt__referente_user=user      
-    ).distinct().order_by('nome') 
-    
-    return render(request, 'compliance/dashboard_consulente.html', {
-        'aziende_list': aziende,
-        'aziende_csirt_ref': aziende_csirt_ref 
-    })
-
 @login_required
 def consulente_add_referente(request, azienda_id):
     if request.user.ruolo != 'CONSULENTE': return redirect('login')
     try:
         # Verifica l'accesso tramite la NUOVA relazione
         azienda = Azienda.objects.get(id=azienda_id, manager_users=request.user)
-    except: return redirect('dashboard_consulente')
+    except: return redirect('compliance:dashboard_consulente')
 
     if request.method == 'POST':
         form = ConsulenteCreaReferenteForm(request.POST)
@@ -200,10 +484,10 @@ def consulente_add_referente(request, azienda_id):
             user = form.save(commit=False); user.username = user.email; user.azienda = azienda; user.ruolo = 'REFERENTE'
             user.set_unusable_password(); user.save(); trigger_set_password_email(request, user)
             messages.success(request, _(f"Nuovo Referente creato per {azienda.nome}."))
-            return redirect('dashboard_consulente')
+            return redirect('compliance:dashboard_consulente')
     else:
         form = ConsulenteCreaReferenteForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Aggiungi Referente per {azienda.nome}", 'sottotitolo_pagina': _("L'utente riceverà un'email per impostare la password."), 'url_annulla': 'dashboard_consulente'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Aggiungi Referente per {azienda.nome}", 'sottotitolo_pagina': _("L'utente riceverà un'email per impostare la password."), 'url_annulla': 'compliance:dashboard_consulente'})
 
 @login_required
 def consulente_crea_compito(request, azienda_id):
@@ -211,7 +495,7 @@ def consulente_crea_compito(request, azienda_id):
     try:
         # Verifica l'accesso tramite la NUOVA relazione
         azienda = Azienda.objects.get(id=azienda_id, manager_users=request.user)
-    except: return redirect('dashboard_consulente')
+    except: return redirect('compliance:dashboard_consulente')
 
     if request.method == 'POST':
         form = ConsulenteCompitoForm(request.POST)
@@ -222,10 +506,10 @@ def consulente_crea_compito(request, azienda_id):
             compito.save() 
             compito.aziende_assegnate.add(azienda)
             messages.success(request, _(f"Nuovo compito '{compito.titolo}' creato per {azienda.nome}."))
-            return redirect('dashboard_consulente')
+            return redirect('compliance:dashboard_consulente')
     else:
         form = ConsulenteCompitoForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Aggiungi Compito/Reminder per {azienda.nome}", 'sottotitolo_pagina': _("Alla data di scadenza, riceverai una notifica email di avviso."), 'url_annulla': 'dashboard_consulente'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Aggiungi Compito/Reminder per {azienda.nome}", 'sottotitolo_pagina': _("Alla data di scadenza, riceverai una notifica email di avviso."), 'url_annulla': 'compliance:dashboard_consulente'})
 
 @login_required
 def consulente_gestisci_moduli(request, azienda_id):
@@ -233,7 +517,7 @@ def consulente_gestisci_moduli(request, azienda_id):
     try:
         # Verifica l'accesso tramite la NUOVA relazione
         azienda = Azienda.objects.get(id=azienda_id, manager_users=request.user)
-    except: return redirect('dashboard_consulente')
+    except: return redirect('compliance:dashboard_consulente')
 
     # 1. La mappa master dei moduli CONFIGURABILI (campi booleani e nome amichevole)
     moduli_configurabili = [
@@ -251,6 +535,11 @@ def consulente_gestisci_moduli(request, azienda_id):
         {'name': 'Richieste Interessati', 'db_field': 'mod_richieste'},
         {'name': 'Gestione Formazione', 'db_field': 'mod_formazione'},
         {'name': 'Storico Sessioni Audit', 'db_field': 'mod_storico_audit'},
+        {'name': 'Asset Aziendali', 'db_field': 'mod_asset'},
+        {'name': 'Analisi Rischi', 'db_field': 'mod_analisi_rischi'},
+        {'name': 'Configurazione Rete', 'db_field': 'mod_rete'},
+        {'name': 'Fornitori', 'db_field': 'mod_fornitori'},
+        {'name': 'Whistleblowing', 'db_field': 'mod_whistleblowing'},
     ]
     
     # 2. Gestione del POST
@@ -286,79 +575,17 @@ def consulente_gestisci_moduli(request, azienda_id):
         'form_moduli': form, # Oggetto form completo
         'moduli_list': moduli_list_context, # Lista chiave per il template
         'titolo_pagina': f"Attiva/Disattiva Moduli per {azienda.nome}",
-        'url_annulla': 'dashboard_consulente'
+        'url_annulla': 'compliance:dashboard_consulente'
     })
 
 # ==============================================================================
 # 3. CRUSCOTTO OPERATIVO (FILTRAGGIO CRUCIALE PER IL REFERENTE)
 # ==============================================================================
-@role_required
-def dashboard_compliance(request):
-    """
-    Vista del cruscotto con risoluzione definitiva dei FieldError per Compito e SecurityAudit.
-    """
-    azienda = get_azienda_current(request)
-    if not azienda:
-        return redirect('login')
-
-    # 1. RISOLUZIONE FIELDERROR COMPITO:
-    # 'azienda' NON esiste -> si usa 'aziende_assegnate' (Many-to-Many)
-    # 'completato' NON esiste -> si usa 'stato'
-    compiti_list = Compito.objects.filter(
-        aziende_assegnate=azienda, 
-        stato='aperto'  # Assicurati che 'aperto' sia il valore corretto nel tuo database
-    ).order_by('data_scadenza')
-
-    # 2. AUDIT GENERALE (GDPR)
-    ultima_sessione = AuditSession.objects.filter(
-        azienda=azienda
-    ).order_by('-data_creazione').first()
-
-    storico_sessioni = AuditSession.objects.filter(
-        azienda=azienda
-    ).order_by('-data_creazione')[:5]
-
-    # 3. SECURITY ASSESSMENT (Storico)
-    # 'data_completamento' NON esiste -> si usa 'data_creazione'
-    storico_security = SecurityAudit.objects.filter(
-        azienda=azienda,
-        completato=True
-    ).order_by('-data_creazione')
-
-    # 4. CONTEGGI PER BADGE E INDICATORI
-    trattamenti_count = RegistroTrattamento.objects.filter(azienda=azienda).count()
-    sessioni_totali = AuditSession.objects.filter(azienda=azienda).count()
-
-    # 5. CONFIGURAZIONE MODULI OPERATIVI
-    moduli = [
-        {'name': _('Registro Trattamenti'), 'icon': 'bi-journal-text', 'url': 'registro_trattamenti_list'},
-        {'name': _('Asset Aziendali'), 'icon': 'bi-laptop', 'url': 'asset_list'},
-        {'name': _('Gestione Documentale'), 'icon': 'bi-folder-fill', 'url': 'documento_list'},
-        {'name': _('Analisi Rischi'), 'icon': 'bi-exclamation-triangle', 'url': 'analisi_rischi_list'},
-    ]
-
-    context = {
-        'azienda': azienda,
-        'compiti_list': compiti_list,
-        'ultima_sessione': ultima_sessione,
-        'storico_sessioni': storico_sessioni,
-        'storico_security': storico_security,
-        'trattamenti_count': trattamenti_count,
-        'sessioni_totali': sessioni_totali,
-        'is_cruscotto_active': True,
-        'is_storico_audit_active': True,
-        'moduli': moduli,
-        'is_consulente': request.user.groups.filter(name='Consulenti').exists(),
-    }
-
-    return render(request, 'compliance/dashboard.html', context)
-
-
 # ==============================================================================
 # 4. AUDIT (e seguenti)
 # ==============================================================================
 
-@role_required
+@role_required()
 def audit_create(request):
     """
     Crea una nuova sessione di audit e reindirizza alla checklist.
@@ -367,7 +594,7 @@ def audit_create(request):
     azienda = get_azienda_current(request)
     if not azienda:
         messages.error(request, _("Azienda non trovata. Impossibile creare l'audit."))
-        return redirect('dashboard_consulente')
+        return redirect('compliance:dashboard_consulente')
 
     # 2. Logica di Reset (se presente ?reset=1 nell'URL)
     # Puoi aggiungere qui logiche per archiviare le vecchie sessioni se necessario
@@ -383,16 +610,16 @@ def audit_create(request):
     messages.success(request, _(f"Nuova sessione di audit #{nuova_sessione.id} inizializzata."))
     
     # Il nome 'audit_checklist' deve corrispondere a quanto definito in urls.py
-    return redirect('audit_checklist', session_pk=nuova_sessione.pk)
-@role_required
-def audit_checklist(request, session_pk):
+    return redirect('compliance:audit_checklist', pk=nuova_sessione.pk)
+@role_required()
+def audit_checklist(request, pk):
     azienda = get_azienda_current(request)
     # Cerchiamo la sessione senza far crashare il server
-    sessione = AuditSession.objects.filter(pk=session_pk, azienda=azienda).first()
+    sessione = get_object_or_404(AuditSession, pk=pk)
 
     if not sessione:
         messages.error(request, f"Errore: La sessione di audit #{session_pk} non è stata trovata.")
-        return redirect('dashboard_compliance')
+        return redirect('compliance:dashboard_compliance')
 
     # 3. Logica delle domande e categorie
     tutte_le_domande = list(AuditDomanda.objects.all())
@@ -404,7 +631,7 @@ def audit_checklist(request, session_pk):
         if form.is_valid():
             form.save()
             messages.success(request, "Audit salvato con successo.")
-            return redirect('dashboard_compliance')
+            return redirect('compliance:dashboard_compliance')
     else:
         form = AuditChecklistForm(sessione=sessione, domande=tutte_le_domande)
 
@@ -430,7 +657,7 @@ def audit_checklist(request, session_pk):
 @role_required
 def security_checklist_view(request, audit_id=None):
     azienda = get_azienda_current(request)
-    if not azienda: return redirect('dashboard_consulente')
+    if not azienda: return redirect('compliance:dashboard_consulente')
 
     # 1. Recupero o creazione dell'Audit
     if audit_id:
@@ -537,7 +764,7 @@ def trattamento_update(request, pk):
     t = get_object_or_404(Trattamento, pk=pk, azienda=azienda)
     if request.method == 'POST':
         form = TrattamentoForm(request.POST, instance=t)
-        if form.is_valid(): form.save(); return redirect('dashboard_compliance')
+        if form.is_valid(): form.save(); return redirect('compliance:dashboard_compliance')
     else: form = TrattamentoForm(instance=t)
     return render(request, 'compliance/trattamento_form.html', {'form': form, 'titolo_pagina': "Modifica Trattamento"})
 
@@ -557,7 +784,7 @@ def checklist_trattamento(request, pk):
         elif score < 15: trattamento.livello_rischio = 'MEDIO'
         else: trattamento.livello_rischio = 'ALTO'; dpia = True
         trattamento.punteggio_rischio_calcolato = score; trattamento.dpia_necessaria = dpia; trattamento.save()
-        messages.success(request, "Rischio calcolato."); return redirect('dashboard_compliance')
+        messages.success(request, "Rischio calcolato."); return redirect('compliance:dashboard_compliance')
     risposte = {r.domanda_id: r.risposta for r in trattamento.risposte_checklist.all()}
     list_d = [{'domanda': d, 'risposta_attuale': risposte.get(d.id, None)} for d in domande]
     return render(request, 'compliance/checklist_form.html', {'trattamento': trattamento, 'domande_list': list_d, 'titolo_pagina': "Valutazione Rischio"})
@@ -639,7 +866,7 @@ def documento_create(request):
             if form.is_valid(): 
                 d = form.save(commit=False); d.azienda = azienda; d.save(); 
                 return redirect('versione_create', doc_pk=d.pk)
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Documento", 'url_annulla': 'documento_list', 'ai_mode': True, 'ai_suggestion_text': ai_suggestion_text})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Documento", 'url_annulla': 'compliance:documento_list', 'ai_mode': True, 'ai_suggestion_text': ai_suggestion_text})
 
 @role_required
 def documento_dettaglio(request, doc_pk):
@@ -655,9 +882,9 @@ def versione_create(request, doc_pk):
     d = get_object_or_404(DocumentoAziendale, pk=doc_pk, azienda=azienda)
     if request.method == 'POST':
         form = VersioneDocumentoForm(request.POST, request.FILES)
-        if form.is_valid(): v = form.save(commit=False); v.documento = d; v.caricato_da = request.user; v.save(); messages.success(request, "Versione caricata."); return redirect('documento_list')
+        if form.is_valid(): v = form.save(commit=False); v.documento = d; v.caricato_da = request.user; v.save(); messages.success(request, "Versione caricata."); return redirect('compliance:documento_list')
     else: form = VersioneDocumentoForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Carica Versione", 'url_annulla': 'documento_list'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Carica Versione", 'url_annulla': 'compliance:documento_list'})
 
 @role_required
 def download_template(request, template_pk):
@@ -688,9 +915,9 @@ def incidente_create(request):
     if not azienda: return redirect('login')
     if request.method == 'POST':
         form = IncidenteForm(request.POST)
-        if form.is_valid(): i = form.save(commit=False); i.azienda = azienda; i.segnalato_da = request.user; i.save(); messages.success(request, "Segnalato."); return redirect('incidente_list')
+        if form.is_valid(): i = form.save(commit=False); i.azienda = azienda; i.segnalato_da = request.user; i.save(); messages.success(request, "Segnalato."); return redirect('compliance:incidente_list')
     else: form = IncidenteForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Segnala Incidente", 'url_annulla': 'dashboard_compliance'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Segnala Incidente", 'url_annulla': 'compliance:dashboard_compliance'})
 
 @role_required
 def incidente_dettaglio(request, pk):
@@ -712,9 +939,9 @@ def gestione_formazione(request):
     if request.method == 'POST':
         u = get_object_or_404(User, id=request.POST.get('studente_id'), azienda=azienda)
         c = get_object_or_404(Corso, id=request.POST.get('corso_id'), stato='A')
-        if 'action_add' in request.POST: IscrizioneCorso.objects.get_or_create(utente=u, corso=c); messages.success(request, "Iscritto.")
-        elif 'action_remove' in request.POST: IscrizioneCorso.objects.filter(utente=u, corso=c).delete(); messages.warning(request, "Rimosso.")
-        return redirect('gestione_formazione')
+        if 'action_add' in request.POST: IscrizioneCorso.objects.get_or_create(studente=u, corso=c) # <--- Corretto
+        elif 'action_remove' in request.POST: IscrizioneCorso.objects.filter(studente=u, corso=c).delete() # <--- Corretto
+        return redirect('compliance:gestione_formazione')
     data = [{'studente': s, 'iscrizioni_set': {i.corso.id for i in s.iscrizioni.all()}} for s in studenti]
     return render(request, 'compliance/gestione_formazione.html', {'studenti_list': data, 'corsi_list': corsi, 'titolo_pagina': "Formazione"})
 
@@ -725,9 +952,9 @@ def studente_create(request):
     if request.method == 'POST':
         form = ReferenteStudenteForm(request.POST)
         if form.is_valid(): u = form.save(commit=False); u.azienda = azienda; u.ruolo = 'STUDENTE'; u.set_unusable_password(); u.save(); trigger_set_password_email(request, u)
-        messages.success(request, "Creato."); return redirect('gestione_formazione')
+        messages.success(request, "Creato."); return redirect('compliance:gestione_formazione')
     else: form = ReferenteStudenteForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Studente", 'url_annulla': 'gestione_formazione'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Studente", 'url_annulla': 'compliance:gestione_formazione'})
 
 @role_required
 def studente_update(request, studente_pk):
@@ -736,9 +963,9 @@ def studente_update(request, studente_pk):
     s = get_object_or_404(User, pk=studente_pk, azienda=azienda, ruolo='STUDENTE')
     if request.method == 'POST':
         form = ReferenteStudenteForm(request.POST, instance=s)
-        if form.is_valid(): form.save(); messages.success(request, "Aggiornato."); return redirect('gestione_formazione')
+        if form.is_valid(): form.save(); messages.success(request, "Aggiornato."); return redirect('compliance:gestione_formazione')
     else: form = ReferenteStudenteForm(instance=s)
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Modifica {s.get_full_name()}", 'url_annulla': 'gestione_formazione'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Modifica {s.get_full_name()}", 'url_annulla': 'compliance:gestione_formazione'})
 
 @role_required
 @transaction.atomic
@@ -752,7 +979,7 @@ def referente_import_excel(request):
                 if row.get('email'):
                     u, c = User.objects.update_or_create(username=row['email'], defaults={'email': row['email'], 'first_name': row.get('nome',''), 'last_name': row.get('cognome',''), 'ruolo': 'STUDENTE', 'azienda': azienda, 'is_active': True})
                     if c: u.set_unusable_password(); u.save(); trigger_set_password_email(request, u)
-            messages.success(request, "Importazione completata."); return redirect('gestione_formazione')
+            messages.success(request, "Importazione completata."); return redirect('compliance:gestione_formazione')
         except Exception as e: messages.error(request, f"Errore: {e}")
     return render(request, 'compliance/importa_studenti.html')
 
@@ -768,13 +995,29 @@ def richiesta_list(request):
 
 @role_required
 def richiesta_create(request):
-    azienda = get_azienda_current(request);
-    if not azienda: return redirect('login')
+    azienda = get_azienda_current(request)
+    if not azienda: 
+        return redirect('login')
+        
     if request.method == 'POST':
         form = RichiestaInteressatoForm(request.POST) 
-        if form.is_valid(): r = form.save(commit=False); r.azienda = azienda; r.gestita_da = request.user; r.save(); messages.success(request, "Creata."); return redirect('richiesta_list')
-    else: form = RichiestaInteressatoForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuova Richiesta", 'url_annulla': 'richiesta_list'})
+        if form.is_valid(): 
+            r = form.save(commit=False)
+            r.azienda = azienda
+            r.gestita_da = request.user
+            r.save()
+            messages.success(request, "Richiesta registrata con successo.")
+            # CORREZIONE 1: Aggiunto namespace compliance:
+            return redirect('compliance:richiesta_list') 
+    else: 
+        form = RichiestaInteressatoForm()
+    
+    # CORREZIONE 2: Aggiunto namespace compliance: alla variabile url_annulla
+    return render(request, 'compliance/form_generico.html', {
+        'form': form, 
+        'titolo_pagina': "Nuova Richiesta", 
+        'url_annulla': 'compliance:richiesta_list'
+    })
 
 @role_required
 def richiesta_dettaglio(request, pk):
@@ -787,9 +1030,9 @@ def richiesta_dettaglio(request, pk):
             r.stato = form.cleaned_data['stato']
             r.note_interne = form.cleaned_data['note_interne']
             r.save(); 
-            messages.success(request, "Aggiornata."); return redirect('richiesta_list')
+            messages.success(request, "Aggiornata."); return redirect('compliance:richiesta_list')
     else: form = RichiestaInteressatoForm(instance=r)
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Dettaglio Richiesta", 'url_annulla': 'richiesta_list'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Dettaglio Richiesta", 'url_annulla': 'compliance:richiesta_list'})
 
 @role_required
 @require_POST
@@ -797,7 +1040,7 @@ def richiesta_chiudi(request, pk):
     azienda = get_azienda_current(request);
     if not azienda: return redirect('login')
     r = get_object_or_404(RichiestaInteressato, pk=pk, azienda=azienda)
-    r.stato = 'EVASA'; r.save(); messages.success(request, "Chiusa."); return redirect('richiesta_list')
+    r.stato = 'EVASA'; r.save(); messages.success(request, "Chiusa."); return redirect('compliance:richiesta_list')
 
 # ==============================================================================
 # 10. COMPITI
@@ -811,7 +1054,7 @@ def compito_completa(request, compito_pk):
     compito = get_object_or_404(Compito, Q(is_global=True) | Q(aziende_assegnate=azienda), pk=compito_pk, stato='APERTO')
     compito.stato = 'COMPLETATO'; compito.save()
     messages.success(request, f"Compito '{compito.titolo}' completato.")
-    return redirect('dashboard_compliance')
+    return redirect('compliance:dashboard_compliance')
     
 # ==============================================================================
 # 11. ASSET
@@ -829,9 +1072,9 @@ def asset_create(request):
     if not azienda: return redirect('login')
     if request.method == 'POST':
         form = AssetForm(request.POST)
-        if form.is_valid(): asset = form.save(commit=False); asset.azienda = azienda; asset.save(); return redirect('asset_list')
+        if form.is_valid(): asset = form.save(commit=False); asset.azienda = azienda; asset.save(); return redirect('compliance:asset_list')
     else: form = AssetForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Asset Hardware", 'url_annulla': 'asset_list'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Asset Hardware", 'url_annulla': 'compliance:asset_list'})
 
 @role_required
 def asset_update(request, pk):
@@ -840,9 +1083,9 @@ def asset_update(request, pk):
     asset = get_object_or_404(Asset, pk=pk, azienda=azienda)
     if request.method == 'POST':
         form = AssetForm(request.POST, instance=asset)
-        if form.is_valid(): form.save(); return redirect('asset_list')
+        if form.is_valid(): form.save(); return redirect('compliance:asset_list')
     else: form = AssetForm(instance=asset)
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Modifica Asset", 'url_annulla': 'asset_list'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Modifica Asset", 'url_annulla': 'compliance:asset_list'})
 
 @role_required
 def software_create(request):
@@ -850,9 +1093,9 @@ def software_create(request):
     if not azienda: return redirect('login')
     if request.method == 'POST':
         form = SoftwareForm(request.POST)
-        if form.is_valid(): sw = form.save(commit=False); sw.azienda = azienda; sw.save(); return redirect('asset_list')
+        if form.is_valid(): sw = form.save(commit=False); sw.azienda = azienda; sw.save(); return redirect('compliance:asset_list')
     else: form = SoftwareForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Software/SaaS", 'url_annulla': 'asset_list'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuovo Software/SaaS", 'url_annulla': 'compliance:asset_list'})
 
 @role_required
 def software_update(request, pk):
@@ -861,9 +1104,9 @@ def software_update(request, pk):
     sw = get_object_or_404(Software, pk=pk, azienda=azienda)
     if request.method == 'POST':
         form = SoftwareForm(request.POST, instance=sw)
-        if form.is_valid(): form.save(); return redirect('asset_list')
+        if form.is_valid(): form.save(); return redirect('compliance:asset_list')
     else: form = SoftwareForm(instance=sw)
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Modifica Software", 'url_annulla': 'asset_list'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': f"Modifica Software", 'url_annulla': 'compliance:asset_list'})
 
 @role_required
 def export_asset_excel(request):
@@ -892,7 +1135,7 @@ def organigramma_view(request):
         if formset.is_valid():
             formset.save()
             messages.success(request, _("Organigramma Privacy aggiornato."))
-            return redirect('organigramma_view')
+            return redirect('compliance:organigramma_view')
         else:
             messages.error(request, _("Errore nel salvataggio. Controllare i dati inseriti."))
     else:
@@ -917,9 +1160,9 @@ def organigramma_view(request):
 
 
 @role_required
-def organigramma_create(request): return redirect('organigramma_view')
+def organigramma_create(request): return redirect('compliance:organigramma_view')
 @role_required
-def organigramma_delete(request, pk): return redirect('organigramma_view')
+def organigramma_delete(request, pk): return redirect('compliance:organigramma_view')
 
 # ==============================================================================
 # 13. TIA
@@ -938,9 +1181,9 @@ def tia_create(request):
     if not azienda: return redirect('login')
     if request.method == 'POST':
         form = TIAForm(request.POST)
-        if form.is_valid(): tia = form.save(commit=False); tia.azienda = azienda; tia.compilato_da = request.user; tia.save(); return redirect('tia_list')
+        if form.is_valid(): tia = form.save(commit=False); tia.azienda = azienda; tia.compilato_da = request.user; tia.save(); return redirect('compliance:tia_list')
     else: form = TIAForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuova TIA", 'url_annulla': 'tia_list'})
+    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Nuova TIA", 'url_annulla': 'compliance:tia_list'})
     
 @role_required
 def tia_detail(request, pk):
@@ -976,16 +1219,29 @@ def video_list(request):
 
 @role_required
 def video_create(request):
-    azienda = get_azienda_current(request);
-    if not azienda: return redirect('login')
+    azienda = get_azienda_current(request)
+    if not azienda: 
+        return redirect('login')
+        
     if request.method == 'POST':
         form = VideosorveglianzaForm(request.POST)
         if form.is_valid():
-            video = form.save(commit=False); video.azienda = azienda; video.compilato_da = request.user; video.save()
+            video = form.save(commit=False)
+            video.azienda = azienda
+            video.compilato_da = request.user
+            video.save()
             messages.success(request, "Impianto salvato.")
-            return redirect('video_list')
-    else: form = VideosorveglianzaForm()
-    return render(request, 'compliance/form_generico.html', {'form': form, 'titolo_pagina': "Checklist Videosorveglianza", 'url_annulla': 'video_list'})
+            # CORREZIONE 1: Aggiunto namespace compliance:
+            return redirect('compliance:video_list')
+    else: 
+        form = VideosorveglianzaForm()
+    
+    # CORREZIONE 2: Aggiunto namespace compliance: alla variabile url_annulla
+    return render(request, 'compliance/form_generico.html', {
+        'form': form, 
+        'titolo_pagina': "Checklist Videosorveglianza", 
+        'url_annulla': 'compliance:video_list'
+    })
 
 @role_required
 def video_detail(request, pk):
@@ -1002,7 +1258,7 @@ def video_delete(request, pk):
     video = get_object_or_404(Videosorveglianza, pk=pk, azienda=azienda)
     video.delete()
     messages.success(request, "Impianto cancellato.")
-    return redirect('video_list')
+    return redirect('compliance:video_list')
 
 @role_required
 def download_video_doc(request, pk, tipo_doc):
@@ -1070,9 +1326,9 @@ def csirt_dashboard(request):
                 request.session['consulente_azienda_id'] = azienda_id_get
             except Azienda.DoesNotExist:
                  messages.error(request, "Accesso non autorizzato o azienda non trovata."); 
-                 return redirect('dashboard_consulente')
+                 return redirect('compliance:dashboard_consulente')
         else:
-            return redirect('dashboard_consulente')
+            return redirect('compliance:dashboard_consulente')
 
     else: # REFERENTE
         azienda = get_azienda_current(request)
@@ -1167,14 +1423,14 @@ def csirt_dashboard(request):
                     for contatto in contatti_formset.deleted_objects:
                         contatto.delete()
                     messages.success(request, _("Lista contatti interni aggiornata."))
-                    return redirect(f"{reverse_lazy('csirt_dashboard')}?azienda_id={azienda.id}")
+                    return redirect(f"{reverse_lazy('compliance:csirt_dashboard')}?azienda_id={azienda.id}")
                 messages.error(request, _("Errore nel salvataggio dei contatti interni."))
             else:
                 form = ReferenteCSIRTForm(request.POST, instance=referente_csirt)
                 if form.is_valid():
                     form.save()
                     messages.success(request, _("Dati Referente CSIRT aggiornati."))
-                    return redirect(f"{reverse_lazy('csirt_dashboard')}?azienda_id={azienda.id}")
+                    return redirect(f"{reverse_lazy('compliance:csirt_dashboard')}?azienda_id={azienda.id}")
                 else:
                      messages.error(request, _("Errore nel salvataggio dei dati Referente. Controllare i campi."))
                      context['form'] = form
@@ -1183,7 +1439,7 @@ def csirt_dashboard(request):
             
         return render(request, 'compliance/csirt_dashboard.html', context)
         
-    return redirect('dashboard_compliance')
+    return redirect('compliance:dashboard_compliance')
 
 
 @role_required
@@ -1204,36 +1460,32 @@ def csirt_upload_template(request):
         except Exception as e:
              messages.error(request, f"Errore sistema: {e}")
     
-    return redirect('csirt_dashboard')
+    return redirect('compliance:csirt_dashboard')
 
 @role_required
+# compliance/views.py
+
 def csirt_notifica_create(request):
-    """Crea una nuova notifica di incidente NIS2, registrando anche la caratterizzazione."""
-    azienda = get_azienda_current(request);
+    azienda = get_azienda_current(request)
     if not azienda: return redirect('login')
     
     if request.method == 'POST':
         form = NotificaIncidenteForm(request.POST)
         if form.is_valid():
-            n = form.save(commit=False)
-            n.azienda = azienda 
-            try: 
-                n.referente_csirt = azienda.referente_csirt
-            except ReferenteCSIRT.DoesNotExist: 
-                messages.warning(request, _("Attenzione: Referente CSIRT non assegnato all'azienda. Notifica salvata, ma la nomina è assente."))
-            
-            n.save() 
-            messages.success(request, _(f"Nuova Notifica Incidente '{n.titolo_incidente}' registrata."))
-            # REINDIRIZZA AL DETTAGLIO DOVE CI SONO I PULSANTI AI
-            return redirect('csirt_notifica_dettaglio', pk=n.pk) 
-    else: 
+            notifica = form.save(commit=False)
+            notifica.azienda = azienda
+            notifica.save()
+            messages.success(request, "Notifica incidente registrata.")
+            # CORREZIONE 1: Aggiunto namespace
+            return redirect('compliance:csirt_dashboard') 
+    else:
         form = NotificaIncidenteForm()
-        
+    
     context = {
-        'form': form, 
-        'titolo_pagina': _("Nuova Notifica Incidente NIS2/ACN"),
-        'sottotitolo_pagina': _("Caratterizzazione e registrazione di un evento rilevante per la sicurezza."),
-        'url_annulla': 'csirt_dashboard'
+        'form': form,
+        'titolo_pagina': "Nuova Notifica Incidente (NIS2)",
+        # CORREZIONE 2: Aggiunto namespace per il tasto Annulla
+        'url_annulla': 'compliance:csirt_dashboard', 
     }
     return render(request, 'compliance/form_generico.html', context)
 
@@ -1241,13 +1493,29 @@ def csirt_notifica_create(request):
 @role_required
 def csirt_notifica_dettaglio(request, pk):
     """Visualizza i dettagli completi e permette l'aggiornamento dello stato/azioni per una Notifica Incidente NIS2."""
-    azienda = get_azienda_current(request)
+    if request.user.ruolo == 'CONSULENTE':
+        azienda_id_get = request.GET.get('azienda_id')
+        if azienda_id_get:
+            try:
+                azienda = Azienda.objects.get(id=azienda_id_get, manager_users=request.user)
+                request.session['consulente_azienda_id'] = str(azienda.id)
+            except Azienda.DoesNotExist:
+                messages.error(request, _("Accesso non autorizzato o azienda non trovata."))
+                return redirect('compliance:dashboard_consulente')
+        else:
+            azienda = get_azienda_current(request)
+    else:
+        azienda = get_azienda_current(request)
     if not azienda: 
         messages.error(request, _("Nessuna azienda associata o selezionata."))
-        return redirect('dashboard_consulente') 
+        return redirect('compliance:dashboard_consulente') 
 
     # Assicurati che l'utente abbia accesso solo alle notifiche della sua azienda
-    notifica = get_object_or_404(NotificaIncidente, pk=pk, azienda=azienda)
+    try:
+        notifica = NotificaIncidente.objects.get(pk=pk, azienda=azienda)
+    except NotificaIncidente.DoesNotExist:
+        messages.error(request, _("Notifica non trovata o non accessibile."))
+        return redirect('compliance:csirt_dashboard')
     
     # Inizializza il Formset per gli Allegati (Modello AllegatoNotifica)
     AllegatoFormSet = inlineformset_factory(
@@ -1260,7 +1528,7 @@ def csirt_notifica_dettaglio(request, pk):
     
     if request.method == 'POST':
         # Gestisce il salvataggio del form principale e degli allegati
-        form = NotificaIncidenteForm(request.POST, instance=notifica)
+        form = NotificaIncidenteUpdateForm(request.POST, instance=notifica)
         formset = AllegatoFormSet(request.POST, request.FILES, instance=notifica)
 
         if form.is_valid() and formset.is_valid():
@@ -1286,7 +1554,7 @@ def csirt_notifica_dettaglio(request, pk):
                     obj.delete()
 
             messages.success(request, _(f"Notifica '{notifica.titolo_incidente}' aggiornata con successo."))
-            return redirect('csirt_notifica_dettaglio', pk=pk)
+            return redirect('compliance:csirt_notifica_dettaglio', pk=pk)
 
         else:
             messages.error(request, _("Errore nel salvataggio. Controllare i campi della notifica o gli allegati."))
@@ -1294,7 +1562,7 @@ def csirt_notifica_dettaglio(request, pk):
 
     else:
         # GET Request
-        form = NotificaIncidenteForm(instance=notifica)
+        form = NotificaIncidenteUpdateForm(instance=notifica)
         formset = AllegatoFormSet(instance=notifica)
         
     is_referente = (request.user.ruolo == 'REFERENTE')
@@ -1469,7 +1737,7 @@ def download_csirt_nomina(request):
     if not azienda: return redirect('login')
     
     try: referente = azienda.referente_csirt
-    except ReferenteCSIRT.DoesNotExist: messages.error(request, "Salva prima i dati del referente."); return redirect('csirt_dashboard')
+    except ReferenteCSIRT.DoesNotExist: messages.error(request, "Salva prima i dati del referente."); return redirect('compliance:csirt_dashboard')
 
     # 1. Recupero Template (Ibrido: DB o Statico)
     template_path = None
@@ -1481,7 +1749,7 @@ def download_csirt_nomina(request):
 
     if not os.path.exists(template_path):
         messages.error(request, "Template mancante (né caricato, né statico).")
-        return redirect('csirt_dashboard')
+        return redirect('compliance:csirt_dashboard')
 
     # 2. Compilazione e Download
     try:
@@ -1569,7 +1837,7 @@ def download_csirt_nomina(request):
         return response
     except Exception as e:
         messages.error(request, f"Errore generazione documento: {e}"); 
-        return redirect('csirt_dashboard')
+        return redirect('compliance:csirt_dashboard')
 
 # ==============================================================================
 # 18. CONFIGURAZIONE RETE (NIS2) - VISTA COMPLETA
@@ -1586,7 +1854,7 @@ def configurazione_rete_view(request):
 
     if not azienda:
         messages.error(request, _("Nessuna azienda associata o selezionata."))
-        return redirect('dashboard_consulente')
+        return redirect('compliance:dashboard_consulente')
 
     is_referente = (user.ruolo == 'REFERENTE')
 
@@ -1610,7 +1878,7 @@ def configurazione_rete_view(request):
             configurazione.refresh_from_db()
 
             messages.success(request, _("Configurazione di Rete aggiornata con successo."))
-            return redirect('configurazione_rete_view')
+            return redirect('compliance:configurazione_rete_view')
         else:
             messages.error(request, _("Errore nel salvataggio dei dati. Controllare i campi evidenziati."))
 
@@ -1659,7 +1927,7 @@ def configurazione_rete_view(request):
 
     return render(request, 'compliance/configurazione_rete_form.html', context)
 @login_required
-@role_required('CONSULENTE')
+@role_required(allowed_roles=['CONSULENTE'])
 def analisi_vulnerabilita_view(request):
     """
     Gestisce la visualizzazione delle analisi tecniche (Nessus/Vulnerabilità).
@@ -1669,7 +1937,7 @@ def analisi_vulnerabilita_view(request):
     
     if not azienda:
         messages.warning(request, "Seleziona un'azienda dalla dashboard per procedere.")
-        return redirect('dashboard_consulente')
+        return redirect('compliance:dashboard_consulente')
 
     context = {
         'azienda': azienda,
@@ -1678,7 +1946,7 @@ def analisi_vulnerabilita_view(request):
     
     return render(request, 'compliance/analisi_vulnerabilita.html', context)
 @login_required
-@role_required('CONSULENTE')
+@role_required(allowed_roles=['CONSULENTE'])
 def monitoraggio_eventi_view(request):
     """
     Vista per il monitoraggio dei log e dei leak di sicurezza.
@@ -1688,7 +1956,7 @@ def monitoraggio_eventi_view(request):
     
     if not azienda:
         messages.error(request, "Azienda non trovata o non selezionata.")
-        return redirect('dashboard_consulente')
+        return redirect('compliance:dashboard_consulente')
 
     # 2. Qui in futuro aggiungeremo la logica per recuperare i log reali
     risultati_monitoraggio = [] 
@@ -1702,7 +1970,7 @@ def monitoraggio_eventi_view(request):
     # 3. Restituiamo il template
     return render(request, 'compliance/monitoraggio_log.html', context)
 @login_required
-@role_required('CONSULENTE')
+@role_required(allowed_roles=['CONSULENTE'])
 def alert_configurazione(request):
     """
     Gestisce la configurazione degli alert di sicurezza per l'azienda.
@@ -1710,7 +1978,7 @@ def alert_configurazione(request):
     azienda = get_azienda_current(request)
     if not azienda:
         messages.error(request, "Azienda non selezionata.")
-        return redirect('dashboard_consulente')
+        return redirect('compliance:dashboard_consulente')
 
     # Qui in futuro potrai gestire il salvataggio delle preferenze di notifica
     context = {
@@ -1811,7 +2079,7 @@ def import_controls_excel(request):
             required_columns = ['control_id', 'area', 'descrizione']
             if not all(col in df.columns for col in required_columns):
                 messages.error(request, "Il file deve contenere le colonne: control_id, area, descrizione")
-                return redirect('dashboard_compliance')
+                return redirect('compliance:dashboard_compliance')
 
             contatore = 0
             for _, row in df.iterrows():
@@ -1832,7 +2100,7 @@ def import_controls_excel(request):
         except Exception as e:
             messages.error(request, f"Errore durante l'importazione: {e}")
             
-        return redirect('dashboard_compliance')
+        return redirect('compliance:dashboard_compliance')
     
     return render(request, 'compliance/import_form.html')
 import pandas as pd
@@ -1989,28 +2257,33 @@ def security_checklist_init(request):
     )
     
     # Reindirizza alla vista che visualizza la checklist usando l'ID appena creato
-    return redirect('security_checklist_view', audit_id=nuovo_audit.id)
-@role_required
+    return redirect('compliance:security_checklist_view', audit_id=nuovo_audit.id)
+@role_required()
 def dashboard_compliance(request):
-    """
-    Dashboard definitiva: risolve i FieldError, NameError e i problemi di redirect.
-    """
-    # 1. Recupero ID Azienda con fallback sicuro
+    # 1. Recupero azienda con logica sicura
     azienda_id = request.GET.get('azienda_id') or request.session.get('azienda_id')
+    azienda = None
     
     if azienda_id:
-        # Usiamo filter().first() invece di get_object_or_404 per gestire l'errore noi stessi
         azienda = Azienda.objects.filter(id=azienda_id).first()
         if azienda:
-            request.session['azienda_id'] = azienda_id
-    else:
-        azienda = get_azienda_current(request)
+            request.session['azienda_id'] = str(azienda.id)
+    elif request.user.ruolo == 'REFERENTE' and getattr(request.user, 'azienda_id', None):
+        # Fallback per referente: usa l'azienda associata al profilo.
+        azienda = request.user.azienda
+        request.session['azienda_id'] = str(azienda.id)
 
-    # Se l'azienda non esiste, reindirizziamo alla dashboard_consulente (che esiste in urls.py)
+    # 2. PROTEZIONE ANTI-LOOP: Se l'azienda non c'è, decidiamo dove mandarlo in base al ruolo
     if not azienda:
-        messages.error(request, _("Azienda non trovata o sessione scaduta."))
-        return redirect('dashboard_consulente')
+        if request.user.ruolo == 'CONSULENTE':
+            return redirect('compliance:dashboard_consulente')
+        # Referente senza azienda: evitiamo il loop facendo logout prima del redirect.
+        logout(request)
+        messages.error(request, "Il tuo profilo non è associato a nessuna azienda. Contatta l'amministratore.")
+        return redirect('login')
 
+    # 3. Se arriviamo qui, l'azienda c'è. Procediamo con il resto della vista...
+    # (Inserisci qui il resto del tuo codice: compiti_list, moduli, ecc.)
     # 2. Recupero Compiti (Campi corretti: aziende_assegnate e stato)
     compiti_list = Compito.objects.filter(
         aziende_assegnate=azienda, 
@@ -2029,20 +2302,34 @@ def dashboard_compliance(request):
     sessioni_totali = AuditSession.objects.filter(azienda=azienda).count()
 
     # 6. Moduli operativi (URL allineati al tuo urls.py)
-    moduli = [
-        {'name': _('Registro Trattamenti'), 'icon': 'bi-journal-text', 'url': 'trattamento_list'},
-        {'name': _('Asset Aziendali'), 'icon': 'bi-laptop', 'url': 'asset_list'},
-        {'name': _('Gestione Documentale'), 'icon': 'bi-folder-fill', 'url': 'documento_list'},
-        {'name': _('Analisi Rischi'), 'icon': 'bi-exclamation-triangle', 'url': 'analisi_rischi_guida'},
-        {'name': _('Incidenti'), 'icon': 'bi-shield-exclamation', 'url': 'incidente_list'},
-        {'name': _('Formazione'), 'icon': 'bi-person-video3', 'url': 'gestione_formazione'},
-        {'name': _('Richieste Interessati'), 'icon': 'bi-people', 'url': 'richiesta_list'},
-        {'name': _('Organigramma'), 'icon': 'bi-diagram-3', 'url': 'organigramma_view'},
-        {'name': _('TIA'), 'icon': 'bi-globe', 'url': 'tia_list'},
-        {'name': _('Videosorveglianza'), 'icon': 'bi-camera-video', 'url': 'video_list'},
-        {'name': _('CSIRT Dashboard'), 'icon': 'bi-cpu', 'url': 'csirt_dashboard'},
-        {'name': _('Configurazione Rete'), 'icon': 'bi-hdd-network', 'url': 'configurazione_rete_view'},
+    is_consulente = (str(getattr(request.user, 'ruolo', '')).upper() == 'CONSULENTE')
+    moduli = []
+    moduli_config = [
+        {'name': _('Registro Trattamenti'), 'icon': 'bi-journal-text', 'url': 'compliance:trattamento_list', 'flag': 'mod_trattamenti'},
+        {'name': _('Asset Aziendali'), 'icon': 'bi-laptop', 'url': 'compliance:asset_list', 'flag': 'mod_asset'},
+        {'name': _('Gestione Documentale'), 'icon': 'bi-folder-fill', 'url': 'compliance:documento_list', 'flag': 'mod_documenti'},
+        {'name': _('Analisi Rischi'), 'icon': 'bi-exclamation-triangle', 'url': 'compliance:analisi_rischi_guida', 'flag': 'mod_analisi_rischi'},
+        {'name': _('Incidenti'), 'icon': 'bi-shield-exclamation', 'url': 'compliance:incidente_list', 'flag': 'mod_incidenti'},
+        {'name': _('Formazione'), 'icon': 'bi-person-video3', 'url': 'compliance:gestione_formazione', 'flag': 'mod_formazione'},
+        {'name': _('Richieste Interessati'), 'icon': 'bi-people', 'url': 'compliance:richiesta_list', 'flag': 'mod_richieste'},
+        {'name': _('Organigramma'), 'icon': 'bi-diagram-3', 'url': 'compliance:organigramma_view', 'flag': 'mod_organigramma'},
+        {'name': _('TIA'), 'icon': 'bi-globe', 'url': 'compliance:tia_list', 'flag': 'mod_tia'},
+        {'name': _('Videosorveglianza'), 'icon': 'bi-camera-video', 'url': 'compliance:video_list', 'flag': 'mod_videosorveglianza'},
+        {'name': _('CSIRT Dashboard'), 'icon': 'bi-cpu', 'url': 'compliance:csirt_dashboard', 'flag': 'mod_csirt'},
+        {'name': _('Configurazione Rete'), 'icon': 'bi-hdd-network', 'url': 'compliance:configurazione_rete_view', 'flag': 'mod_rete'},
+        {'name': _('Fornitori'), 'icon': 'bi-truck', 'url': 'compliance:lista_fornitori_azienda', 'flag': 'mod_fornitori'},
+        {'name': _('Whistleblowing'), 'icon': 'bi-megaphone', 'url': 'compliance:whistleblowing_info', 'flag': 'mod_whistleblowing'},
     ]
+    for modulo in moduli_config:
+        if getattr(azienda, modulo['flag'], False):
+            moduli.append(modulo)
+
+    wb_config = ConfigurazioneWhistleblowing.objects.filter(azienda=azienda).first()
+    wb_anno = timezone.now().year
+    wb_segnalazioni_annuali = SegnalazioneWhistleblowing.objects.filter(
+        azienda=azienda,
+        data_invio__year=wb_anno
+    ).count()
 
     context = {
         'azienda': azienda,
@@ -2052,10 +2339,30 @@ def dashboard_compliance(request):
         'storico_security': storico_security,
         'trattamenti_count': trattamenti_count,
         'sessioni_totali': sessioni_totali,
-        'is_cruscotto_active': True,
-        'is_storico_audit_active': True,
+        'is_cruscotto_active': bool(azienda.mod_cruscotto),
+        'is_storico_audit_active': bool(azienda.mod_storico_audit),
+        'show_audit_card': bool(azienda.mod_audit),
+        'show_indicator_card': any([
+            azienda.mod_trattamenti,
+            azienda.mod_audit,
+            azienda.mod_csirt,
+            azienda.mod_storico_audit,
+            azienda.mod_fornitori,
+        ]),
+        'show_security_vendor': bool(azienda.mod_fornitori),
+        'show_riepilogo_sezione': any([
+            azienda.mod_audit,
+            azienda.mod_trattamenti,
+            azienda.mod_csirt,
+            azienda.mod_storico_audit,
+            azienda.mod_fornitori,
+        ]),
+        'show_whistleblowing_info': bool(azienda.mod_whistleblowing) and str(getattr(request.user, 'ruolo', '')).upper() == 'REFERENTE',
+        'whistleblowing_config': wb_config,
+        'whistleblowing_year': wb_anno,
+        'whistleblowing_count': wb_segnalazioni_annuali,
         'moduli': moduli,
-        'is_consulente': request.user.groups.filter(name='Consulenti').exists(),
+        'is_consulente': is_consulente,
     }
 
     return render(request, 'compliance/dashboard.html', context)
@@ -2076,3 +2383,412 @@ def documento_list(request):
     azienda = get_azienda_current(request)
     documenti = DocumentoAziendale.objects.filter(azienda=azienda)
     return render(request, 'compliance/documento_list.html', {'documenti': documenti, 'azienda': azienda})
+def lista_domande_fornitori(request, fornitore_id):
+    fornitore = get_object_or_404(Fornitore, id=fornitore_id)
+    # Ordiniamo prima per macro_categoria, poi per TEMA (Ambito) e infine per CODICE
+    domande = DomandaFornitore.objects.all().order_by('macro_categoria', 'codice', 'tema')
+    
+    domande_per_area = {
+        'Gestione della Sicurezza': domande.filter(macro_categoria='GESTIONE'),
+        'Sicurezza IT': domande.filter(macro_categoria='IT'),
+        'Sicurezza Fisica': domande.filter(macro_categoria='FISICA'),
+    }
+
+    # RECUPERO RISPOSTE: Assicurati che non siano stringhe!
+    risposte_esistenti = RispostaQuestionarioFornitore.objects.filter(fornitore=fornitore)
+    
+    # Creiamo i dizionari esplicitamente
+    mappa_risposte = {r.domanda_id: r.valore_risposta for r in risposte_esistenti}
+    mappa_note = {r.domanda_id: r.note for r in risposte_esistenti}
+
+    return render(request, 'compliance/questionario_form.html', {
+        'fornitore': fornitore,
+        'domande_per_area': domande_per_area,
+        'mappa_risposte': mappa_risposte, # Deve essere un dict
+        'mappa_note': mappa_note,         # Deve essere un dict
+    })
+def salva_risposte_fornitori(request, fornitore_id):
+    if request.method == "POST":
+        fornitore = get_object_or_404(Fornitore, id=fornitore_id)
+        
+        # Recuperiamo tutte le domande per ciclare sui dati inviati dal form
+        domande = DomandaFornitore.objects.all()
+        risposte_salvate = 0
+        
+        for d in domande:
+            valore = request.POST.get(f'risposta_{d.id}')
+            note = request.POST.get(f'note_{d.id}', '').strip()
+            
+            # Salviamo solo se l'utente ha selezionato una risposta (Sì/No/Parziale)
+            if valore and valore != "":
+                RispostaQuestionarioFornitore.objects.update_or_create(
+                    fornitore=fornitore,
+                    domanda=d,
+                    defaults={
+                        'valore_risposta': float(valore),
+                        'note': note
+                    }
+                )
+                risposte_salvate += 1
+        
+        # Aggiungiamo un feedback visivo per l'utente
+        if risposte_salvate > 0:
+            messages.success(request, f"Valutazione salvata con successo! Registrate {risposte_salvate} risposte.")
+        else:
+            messages.warning(request, "Nessuna risposta selezionata. Il questionario non è stato aggiornato.")
+            
+        return redirect('compliance:risultati_fornitori', fornitore_id=fornitore.id)
+    
+    return redirect('compliance:lista_domande_fornitori', fornitore_id=fornitore_id)
+def risultati_questionario_fornitori(request, fornitore_id):
+    fornitore = get_object_or_404(Fornitore, id=fornitore_id)
+    
+    risposte = RispostaQuestionarioFornitore.objects.filter(fornitore=fornitore).select_related('domanda')
+    domande = DomandaFornitore.objects.all()
+
+    if not domande.exists():
+        messages.info(request, "Nessun dato disponibile. Compila il questionario per vedere i risultati.")
+        return redirect('compliance:lista_domande_fornitori', fornitore_id=fornitore.id)
+
+    # Inizializziamo i totali Generali e per Macro Area
+    stats = {
+        'GENERALE': {'ottenuto': 0, 'max': 0},
+        'GESTIONE': {'ottenuto': 0, 'max': 0},
+        'IT': {'ottenuto': 0, 'max': 0},
+        'FISICA': {'ottenuto': 0, 'max': 0},
+    }
+
+    risposte_map = {r.domanda_id: r for r in risposte}
+    for d in domande:
+        max_pesato = 1.0 * d.peso_domanda * d.peso_tema
+        valore_pesato = 0
+        risposta = risposte_map.get(d.id)
+        if risposta:
+            valore_pesato = risposta.valore_risposta * d.peso_domanda * d.peso_tema
+
+        stats['GENERALE']['ottenuto'] += valore_pesato
+        stats['GENERALE']['max'] += max_pesato
+
+        area_key = d.macro_categoria
+        if area_key in stats:
+            stats[area_key]['ottenuto'] += valore_pesato
+            stats[area_key]['max'] += max_pesato
+
+    # Calcolo delle percentuali finali
+    risultati_finali = {}
+    for key, data in stats.items():
+        percentuale = (data['ottenuto'] / data['max'] * 100) if data['max'] > 0 else 0
+        risultati_finali[key] = round(percentuale, 2)
+
+    # Prepariamo i dati per il Grafico Radar/Barre
+    labels_grafico = ['Gestione Sicurezza', 'Sicurezza IT', 'Sicurezza Fisica']
+    valori_grafico = [
+        risultati_finali['GESTIONE'],
+        risultati_finali['IT'],
+        risultati_finali['FISICA']
+    ]
+
+    raccomandazioni = build_vendor_recommendations(risultati_finali)
+
+    return render(request, 'compliance/risultati_fornitori.html', {
+        'punteggio_finale': risultati_finali['GENERALE'],
+        'dettaglio_aree': risultati_finali,
+        'labels_grafico': labels_grafico,
+        'valori_grafico': valori_grafico,
+        'fornitore': fornitore,
+        'raccomandazioni': raccomandazioni
+    })
+@role_required
+def export_questionario_pdf(request, fornitore_id):
+    fornitore = get_object_or_404(Fornitore, id=fornitore_id)
+    risposte = RispostaQuestionarioFornitore.objects.filter(fornitore=fornitore).select_related('domanda')
+    domande = DomandaFornitore.objects.all()
+    
+    # --- LOGICA CALCOLI (Stessa dei risultati) ---
+    stats = {'GENERALE': {'ottenuto': 0, 'max': 0}, 'GESTIONE': {'ottenuto': 0, 'max': 0}, 
+             'IT': {'ottenuto': 0, 'max': 0}, 'FISICA': {'ottenuto': 0, 'max': 0}}
+
+    risposte_map = {r.domanda_id: r for r in risposte}
+    for d in domande:
+        max_pesato = 1.0 * d.peso_domanda * d.peso_tema
+        valore_pesato = 0
+        risposta = risposte_map.get(d.id)
+        if risposta:
+            valore_pesato = risposta.valore_risposta * d.peso_domanda * d.peso_tema
+        stats['GENERALE']['ottenuto'] += valore_pesato
+        stats['GENERALE']['max'] += max_pesato
+        area = d.macro_categoria
+        if area in stats:
+            stats[area]['ottenuto'] += valore_pesato
+            stats[area]['max'] += max_pesato
+
+    risultati = {k: round((v['ottenuto']/v['max']*100), 2) if v['max'] > 0 else 0 for k, v in stats.items()}
+    raccomandazioni = build_vendor_recommendations(risultati)
+
+    # --- GENERAZIONE PDF ---
+    context = {
+        'fornitore': fornitore,
+        'risultati': risultati,
+        'data_report': timezone.now(),
+        'raccomandazioni': raccomandazioni,
+    }
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Security_Report_{fornitore.ragione_sociale}.pdf"'
+    
+    # Carichiamo un template specifico per il PDF (più pulito)
+    template = get_template('compliance/pdf_risultati_fornitori.html')
+    html = template.render(context)
+    
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+        return HttpResponse('Errore nella generazione del PDF', status=500)
+    return response
+
+@role_required(allowed_roles=['CONSULENTE'])
+def lista_fornitori_azienda(request):
+    azienda = get_azienda_current(request)
+    if not azienda: return redirect('dashboard_consulente')
+    
+    fornitori = Fornitore.objects.filter(azienda_cliente=azienda)
+    return render(request, 'compliance/fornitori_list.html', {
+        'azienda': azienda,
+        'fornitori': fornitori
+    })
+
+@role_required(allowed_roles=['CONSULENTE'])
+def crea_fornitore(request):
+    azienda = get_azienda_current(request)
+    if not azienda:
+        messages.error(request, "Azienda non identificata.")
+        return redirect('dashboard_consulente')
+
+    if request.method == "POST":
+        form = FornitoreForm(request.POST)
+        if form.is_valid():
+            fornitore = form.save(commit=False)
+            fornitore.azienda_cliente = azienda
+            fornitore.save()
+            messages.success(request, f"Fornitore creato: {fornitore.ragione_sociale}")
+            return redirect(f"{reverse('compliance:lista_fornitori_azienda')}?azienda_id={azienda.pk}")
+    else:
+        form = FornitoreForm()
+
+    return render(request, 'compliance/fornitore_form.html', {
+        'form': form,
+        'azienda': azienda
+    })
+
+@role_required(allowed_roles=['CONSULENTE'])
+def prepara_invito_fornitore(request, fornitore_id):
+    fornitore = get_object_or_404(Fornitore, id=fornitore_id)
+    azienda = fornitore.azienda_cliente
+    config_sito = ImpostazioniSito.objects.first()
+
+    protocol = 'https' if request.is_secure() else 'http'
+    domain = request.get_host()
+    link_portale = f"{protocol}://{domain}/compliance/vendor-portal/{fornitore.access_token}/"
+
+    email_subject = f"Richiesta Valutazione Sicurezza Fornitore (NIS2) - {azienda.nome}"
+    email_message = f"""
+    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #eee; padding: 20px;">
+        <h2 style="color: #003366;">HUB Compliance</h2>
+        <p>Gentile referente di <strong>{fornitore.ragione_sociale}</strong>,</p>
+        <p>Per conto di <strong>{azienda.nome}</strong>, vi richiediamo di completare la valutazione di sicurezza per gli adempimenti <strong>NIS2 e GDPR</strong>.</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{link_portale}" style="background-color: #1b17a4; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                ACCEDI AL PORTALE FORNITORI
+            </a>
+        </div>
+        <p style="font-size: 13px; color: #666;">Il link è sicuro e non richiede password.</p>
+        <hr style="border: none; border-top: 1px solid #eee;">
+        <p style="font-size: 12px; color: #999;">Messaggio inviato tramite la piattaforma HUB Compliance.</p>
+    </div>
+    """
+
+    return render(request, 'compliance/fornitore_conferma_invio.html', {
+        'fornitore': fornitore,
+        'link_portale': link_portale,
+        'azienda_nome': azienda.nome,
+        'email_subject': email_subject,
+        'email_message': email_message,
+        'EMAILJS_SERVICE_ID': getattr(config_sito, 'email_service_id', ''),
+        'EMAILJS_TEMPLATE_ID': getattr(config_sito, 'email_fornitori_template_id', ''),
+        'EMAILJS_PUBLIC_KEY': getattr(config_sito, 'email_public_key', '')
+    })
+@role_required(allowed_roles=['CONSULENTE'])
+def aggiorna_stato_fornitore(request, fornitore_id):
+    fornitore = get_object_or_404(Fornitore, id=fornitore_id)
+    fornitore.stato_valutazione = 'INVIATO'
+    fornitore.save()
+    messages.success(request, f"Stato aggiornato: invito inviato a {fornitore.ragione_sociale}")
+    return redirect(f"{reverse('compliance:lista_fornitori_azienda')}?azienda_id={fornitore.azienda_cliente.pk}")
+# In compliance/views.py
+
+def vendor_portal_form(request, token):
+    fornitore = get_object_or_404(Fornitore, access_token=token)
+    # Recuperiamo le domande del questionario CLUSIT dal tuo DB
+    domande_clusit = DomandaFornitore.objects.all().order_by('macro_categoria', 'codice', 'tema')
+    domande_per_area = {
+        'Gestione della Sicurezza': domande_clusit.filter(macro_categoria='GESTIONE'),
+        'Sicurezza IT': domande_clusit.filter(macro_categoria='IT'),
+        'Sicurezza Fisica': domande_clusit.filter(macro_categoria='FISICA'),
+    }
+
+    if request.method == "POST":
+        # 1. Salvataggio Risposte Questionario
+        for domanda in domande_clusit:
+            field_name = f"domanda_{domanda.id}"
+            risposta_valore = request.POST.get(field_name)
+            
+            if risposta_valore is not None:
+                RispostaQuestionarioFornitore.objects.update_or_create(
+                    fornitore=fornitore,
+                    domanda=domanda,
+                    defaults={'valore_risposta': float(risposta_valore)}
+                )
+
+        # 2. Salvataggio Allegati (se presenti)
+        if request.FILES.get('certificato'):
+            AllegatoFornitore.objects.create(
+                fornitore=fornitore,
+                file=request.FILES['certificato'],
+                descrizione="Certificazione caricata dal portale"
+            )
+
+        # 3. Aggiornamento Stato e logica di completamento
+        fornitore.stato_valutazione = 'COMPILATO'
+        fornitore.save()
+        notify_consulenti_fornitore(request, fornitore)
+
+        return render(request, 'compliance/vendor_thanks.html', {'fornitore': fornitore})
+
+    return render(request, 'compliance/vendor_portal_form.html', {
+        'fornitore': fornitore,
+        'domande_per_area': domande_per_area
+    })
+def invia_segnalazione(request):
+    azienda = get_azienda_current(request)
+    if not azienda:
+        return HttpResponse("Azienda non valida.", status=400)
+    
+    if request.method == "POST":
+        # 1. Creazione segnalazione (come visto prima)
+        nuova_segnalazione = SegnalazioneWhistleblowing.objects.create(
+            azienda=azienda,
+            categoria=request.POST.get('categoria'),
+            oggetto=request.POST.get('oggetto'),
+            descrizione=request.POST.get('descrizione'),
+            nome_segnalante=request.POST.get('nome', 'Anonimo'),
+            email_contatto=request.POST.get('email')
+        )
+        
+        # 2. Gestione file con pulizia metadati
+        files = request.FILES.getlist('documenti')
+        for f in files:
+            # Puliamo il file prima del salvataggio
+            file_pulito = clean_image_metadata(f)
+            
+            AllegatoWhistleblowing.objects.create(
+                segnalazione=nuova_segnalazione,
+                file=file_pulito
+            )
+
+        notify_referenti_whistleblowing(request, azienda)
+
+        request.session['wb_ticket_code'] = nuova_segnalazione.codice_ticket
+        config = ImpostazioniSito.objects.first()
+        status_url = f"{request.build_absolute_uri(reverse('compliance:check_status'))}?codice={nuova_segnalazione.codice_ticket}"
+
+        return render(request, 'compliance/whistleblowing_success.html', {
+            'codice': nuova_segnalazione.codice_ticket,
+            'azienda': azienda,
+            'segnalazione': nuova_segnalazione,
+            'status_url': status_url,
+            'config': config,
+        })
+        
+    return render(request, 'compliance/whistleblowing_form.html', {'azienda': azienda})
+@role_required(allowed_roles=['CONSULENTE'])
+def lista_segnalazioni_whistleblowing(request):
+    # Il consulente vede le segnalazioni di tutte le aziende che segue
+    # o puoi filtrarle per l'azienda selezionata in sessione
+    segnalazioni = SegnalazioneWhistleblowing.objects.all().order_by('-data_invio')
+    
+    return render(request, 'compliance/segnalazioni_list.html', {
+        'segnalazioni': segnalazioni
+    })
+
+@role_required(allowed_roles=['CONSULENTE'])
+def dettaglio_segnalazione(request, pk):
+    segnalazione = get_object_or_404(SegnalazioneWhistleblowing, pk=pk)
+    
+    if request.method == 'POST':
+        # Salvataggio della risposta ufficiale
+        segnalazione.risposta_consulente = request.POST.get('risposta')
+        segnalazione.stato = request.POST.get('stato')
+        segnalazione.save()
+        messages.success(request, "Risposta aggiornata con successo.")
+        return redirect('compliance:lista_segnalazioni')
+
+    return render(request, 'compliance/segnalazione_detail.html', {
+        'segnalazione': segnalazione
+    })
+def check_segnalazione_status(request):
+    segnalazione = None
+    errore = None
+    codice_inserito = request.GET.get('codice', '').strip()
+
+    if codice_inserito:
+        try:
+            # Cerchiamo la segnalazione corrispondente al ticket
+            segnalazione = SegnalazioneWhistleblowing.objects.get(codice_ticket=codice_inserito)
+        except SegnalazioneWhistleblowing.DoesNotExist:
+            errore = "Codice non valido o inesistente. Riprova."
+
+    return render(request, 'compliance/whistleblowing_check.html', {
+        'segnalazione': segnalazione,
+        'errore': errore,
+        'codice_inserito': codice_inserito
+    })
+@login_required
+def dashboard_referente_wb(request):
+    azienda = request.user.azienda_cliente # Assumendo il legame utente-azienda
+    config = ConfigurazioneWhistleblowing.objects.get(azienda=azienda)
+    
+    # Conteggio segnalazioni anno corrente
+    anno_corrente = timezone.now().year
+    totale_anno = SegnalazioneWhistleblowing.objects.filter(
+        azienda=azienda, 
+        data_invio__year=anno_corrente
+    ).count()
+
+    context = {
+        'config': config,
+        'totale_anno': totale_anno,
+    }
+    return render(request, 'compliance/wb_referente_view.html', context)
+def whistleblowing_success(request):
+    # Recuperiamo il codice salvato nella sessione dalla view precedente
+    codice = request.session.get('wb_ticket_code')
+    
+    if not codice:
+        # Se qualcuno accede alla pagina direttamente senza aver inviato nulla
+        return redirect('compliance:lista_aziende_wb') 
+
+    # Opzionale: puliamo la sessione così il codice non resta in memoria
+    # del browser se l'utente ricarica la pagina dopo averlo segnato
+    # del request.session['wb_ticket_code'] 
+
+    segnalazione = SegnalazioneWhistleblowing.objects.filter(codice_ticket=codice).first()
+    azienda = segnalazione.azienda if segnalazione else None
+    config = ImpostazioniSito.objects.first()
+    status_url = f"{request.build_absolute_uri(reverse('compliance:check_status'))}?codice={codice}"
+
+    return render(request, 'compliance/whistleblowing_success.html', {
+        'codice': codice,
+        'azienda': azienda,
+        'segnalazione': segnalazione,
+        'status_url': status_url,
+        'config': config,
+    })

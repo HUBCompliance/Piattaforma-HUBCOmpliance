@@ -14,10 +14,10 @@
         
         {# Raggruppamento pulsanti Esporta PDF e Torna al Cruscotto #}
         <div class="d-flex gap-2">
-            <a href="{% url 'export_security_pdf' audit.id %}" class="btn btn-danger shadow-sm d-flex align-items-center">
+            <a href="{% url 'compliance:export_security_pdf' audit.id %}" class="btn btn-danger shadow-sm d-flex align-items-center">
                 <i class="bi bi-file-earmark-pdf me-2"></i> {% translate "Esporta PDF" %}
             </a>
-            <a href="{% url 'dashboard_compliance' %}" class="btn btn-outline-secondary shadow-sm d-flex align-items-center">
+            <a href="{% url 'compliance:dashboard_compliance' %}" class="btn btn-outline-secondary shadow-sm d-flex align-items-center">
                 <i class="bi bi-arrow-left me-2"></i> {% translate "Torna al Cruscotto" %}
             </a>
         </div>
@@ -75,7 +75,7 @@
                 
                 <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#accordionSecurity">
                     <div class="accordion-body p-0">
-                        <form method="POST" action="{% url 'salva_area_security' audit.id %}">
+                        <form method="POST" action="{% url 'compliance:salva_area_security' audit.id %}">
                             {% csrf_token %}
                             
                             <div class="table-responsive">

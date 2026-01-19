@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Report Sintetico Vendor Security</title>
+    <style>
+        @page {
+            size: a4 portrait;
+            margin: 1.5cm;
+            @bottom-right {
+                content: "Pagina " counter(page) " di " counter(pages);
+                font-size: 9pt;
+            }
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #333;
+            line-height: 1.5;
+        }
+        .header-table {
+            width: 100%;
+            border-bottom: 2px solid #0d6efd;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-height: 70px;
+            max-width: 250px;
+        }
+        .company-info {
+            text-align: right;
+            font-size: 10pt;
+            color: #666;
+        }
+        .report-title {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #0d6efd;
+            margin-bottom: 5px;
+        }
+        .summary-card {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .main-score {
+            font-size: 48pt;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .score-success { color: #198754; }
+        .score-warning { color: #ffc107; }
+        .score-danger { color: #dc3545; }
+
+        .section-title {
+            font-size: 14pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-left: 5px solid #0d6efd;
+            padding-left: 10px;
+            margin: 25px 0 15px 0;
+            background-color: #f1f4f9;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .stats-table th, .stats-table td {
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+        }
+        .stats-table th {
+            background-color: #f8f9fa;
+            width: 70%;
+        }
+        .recommendation-box {
+            padding: 15px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            background-color: #fff;
+        }
+        .priority-high { color: #dc3545; font-weight: bold; }
+        .priority-med { color: #fd7e14; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td>
+                {% if fornitore.azienda_cliente.logo_principale %}
+                    <img src="{{ fornitore.azienda_cliente.logo_principale.path }}" class="logo">
+                {% else %}
+                    <h2 style="color:#0d6efd;">{{ fornitore.azienda_cliente.nome }}</h2>
+                {% endif %}
+            </td>
+            <td class="company-info">
+                <div class="report-title">SECURITY REPORT</div>
+                <div>Framework: CLUSIT / NIST</div>
+                <div>Data: {{ data_report|date:"d F Y" }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="summary-card">
+        <div style="font-size: 12pt; text-transform: uppercase; letter-spacing: 1px;">Punteggio di Conformità Globale</div>
+        <div class="main-score 
+            {% if risultati.GENERALE > 75 %}score-success
+            {% elif risultati.GENERALE > 50 %}score-warning
+            {% else %}score-danger{% endif %}">
+            {{ risultati.GENERALE }}%
+        </div>
+        <div style="font-size: 10pt; color: #666;">
+            Valutazione complessiva del profilo di rischio fornitore
+        </div>
+    </div>
+
+    <div class="section-title">Riassunto Esecutivo</div>
+    <div class="recommendation-box">
+        <strong>Fornitore:</strong> {{ fornitore.ragione_sociale }}<br>
+        <strong>Profilo complessivo:</strong>
+        {% if risultati.GENERALE < 60 %}Rischio alto{% elif risultati.GENERALE < 85 %}Rischio medio{% else %}Rischio contenuto{% endif %}.<br>
+        <strong>Aree critiche:</strong>
+        {% if risultati.GESTIONE < 60 %}Gestione Sicurezza; {% endif %}
+        {% if risultati.IT < 60 %}Sicurezza IT; {% endif %}
+        {% if risultati.FISICA < 60 %}Sicurezza Fisica; {% endif %}
+        {% if risultati.GESTIONE >= 60 and risultati.IT >= 60 and risultati.FISICA >= 60 %}Nessuna area critica{% endif %}.
+        <br>
+        <strong>Priorita suggerite:</strong> presidiare le azioni con priorita alta e definire owner e scadenze.
+    </div>
+    <div class="section-title">Riepilogo Macro-Aree</div>
+    <table class="stats-table">
+        <tr>
+            <th>Gestione della Sicurezza (Governance & Policy)</th>
+            <td style="font-weight: bold; font-size: 14pt;">{{ risultati.GESTIONE }}%</td>
+        </tr>
+        <tr>
+            <th>Sicurezza IT (Controlli Tecnici & Asset)</th>
+            <td style="font-weight: bold; font-size: 14pt;">{{ risultati.IT }}%</td>
+        </tr>
+        <tr>
+            <th>Sicurezza Fisica (Locali & Logistica)</th>
+            <td style="font-weight: bold; font-size: 14pt;">{{ risultati.FISICA }}%</td>
+        </tr>
+    </table>
+
+    <div class="section-title">Piano di Azione Consigliato</div>
+
+    {% for rec in raccomandazioni %}
+    <div class="recommendation-box">
+        <span class="priority-high">[{{ rec.priorita|upper }} PRIORITÀ] {{ rec.area }}:</span>
+        <strong>{{ rec.titolo }}</strong> - {{ rec.descrizione }}<br>
+        <span style="font-size: 10pt; color: #666;">Owner: {{ rec.owner }} · Orizzonte: {{ rec.orizzonte }}</span>
+    </div>
+    {% endfor %}
+
+    <div style="margin-top: 50px; font-size: 9pt; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
+        Report generato automaticamente dal sistema HUB Compliance. Questo documento è strettamente riservato.
+    </div>
+</body>
+</html>

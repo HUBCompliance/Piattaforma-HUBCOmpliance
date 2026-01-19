@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Registro Formazione Aziendale</h1>
+            <p class="text-muted mb-0">Azienda: <strong>{{ azienda.nome }}</strong></p>
+        </div>
+        <div>
+            <a href="{% url 'courses:esporta_registro_excel' %}" class="btn btn-outline-success me-2">
+                <i class="bi bi-file-earmark-excel"></i> Esporta Excel
+            </a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalManuale">
+                <i class="bi bi-plus-circle"></i> Aggiungi Corso Esterno
+            </button>
+        </div>
+    </div>
+
+    <div class="card mb-3 shadow-sm border-0">
+        <div class="card-body">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" id="searchInput" class="form-control border-start-0" 
+                       placeholder="Cerca per nome dipendente o titolo corso..." 
+                       onkeyup="filtraTabella()">
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle" id="registroTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Dipendente</th>
+                            <th>Titolo Corso</th>
+                            <th>Data Fine</th>
+                            <th>Ore</th>
+                            <th>Fonte</th>
+                            <th>Note</th>
+                            <th class="pe-4 text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for voce in registro %}
+                        <tr class="voce-registro">
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark nome-dipendente">{{ voce.studente.get_full_name }}</div>
+                                <small class="text-muted">{{ voce.studente.email }}</small>
+                            </td>
+                            <td class="titolo-corso">{{ voce.titolo_corso }}</td>
+                            <td>{{ voce.data_completamento|date:"d/m/Y" }}</td>
+                            <td><span class="badge rounded-pill bg-light text-dark border">{{ voce.durata_ore }} h</span></td>
+                            <td>
+                                {% if voce.fonte == 'A' %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Piattaforma</span>
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25">Manuale</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ voce.note|default:"-"|truncatechars:30 }}</small></td>
+                            <td class="pe-4 text-end">
+                                {% if voce.fonte == 'M' %}
+                                    <a href="{% url 'courses:elimina_voce_registro' voce.id %}" 
+                                       class="btn btn-sm btn-outline-danger" 
+                                       onclick="return confirm('Sei sicuro di voler eliminare questa voce?');">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted" title="I record certificati non possono essere eliminati"><i class="bi bi-lock-fill"></i></span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">Nessun dato presente nel registro.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalManuale" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-journal-plus me-2"></i>Registra Corso Esterno</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Dipendente</label>
+                    <select name="studente_id" class="form-select" required>
+                        <option value="" disabled selected>Seleziona dalla lista...</option>
+                        {% for d in dipendenti %}
+                            <option value="{{ d.id }}">{{ d.get_full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Titolo Corso</label>
+                    <input type="text" name="titolo_corso" class="form-control" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Data Fine</label>
+                        <input type="date" name="data_completamento" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Ore</label>
+                        <input type="number" step="0.5" name="durata_ore" class="form-control" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Note</label>
+                    <textarea name="note" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Annulla</button>
+                <button type="submit" class="btn btn-primary">Salva nel Registro</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function filtraTabella() {
+    let input = document.getElementById("searchInput");
+    let filter = input.value.toUpperCase();
+    let table = document.getElementById("registroTable");
+    let tr = table.getElementsByClassName("voce-registro");
+
+    for (let i = 0; i < tr.length; i++) {
+        let nome = tr[i].getElementsByClassName("nome-dipendente")[0].innerText;
+        let corso = tr[i].getElementsByClassName("titolo-corso")[0].innerText;
+        
+        if (nome.toUpperCase().indexOf(filter) > -1 || corso.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+        } else {
+            tr[i].style.display = "none";
+        }
+    }
+}
+</script>
+{% endblock %}

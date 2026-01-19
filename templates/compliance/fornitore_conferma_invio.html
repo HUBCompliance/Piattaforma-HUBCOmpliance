@@ -1,0 +1,97 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'compliance:csirt_dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Invia Invito Fornitore</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white p-3">
+                    <h5 class="mb-0"><i class="bi bi-send me-2"></i>Revisione Invito Fornitore</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-4">
+                        <h6>Destinatario:</h6>
+                        <p class="lead mb-1"><strong>{{ fornitore.ragione_sociale }}</strong></p>
+                        <p class="text-muted"><i class="bi bi-envelope me-2"></i>{{ fornitore.email_contatto }}</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6>Anteprima Oggetto Email:</h6>
+                        <div class="p-2 bg-light border rounded">
+                            <code>{{ email_subject }}</code>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6>Anteprima Contenuto Email:</h6>
+                        <div class="p-3 bg-light border rounded">
+                            {{ email_message|safe }}
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Cliccando sul tasto invia, il fornitore riceverà un link univoco per accedere al portale senza password.
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button id="btn-invia" onclick="sendEmailJS()" class="btn btn-primary btn-lg">
+                            <i class="bi bi-mailbox2 me-2"></i> Conferma e Invia Email
+                        </button>
+                        <a href="{% url 'compliance:lista_fornitori_azienda' %}" class="btn btn-link text-muted">Annulla</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+<script type="text/javascript">
+   // Inizializzazione con la tua Public Key (Passata dalla view o scritta a mano)
+   (function(){
+      emailjs.init("{{ EMAILJS_PUBLIC_KEY }}"); 
+   })();
+
+   function sendEmailJS() {
+      const btn = document.getElementById('btn-invia');
+      
+      // Feedback visivo disabilitando il tasto
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Invio in corso...';
+
+      // Parametri dinamici: mandiamo l'intero blocco HTML costruito in Django
+      const templateParams = {
+         to_email: "{{ fornitore.email_contatto }}",
+         subject: "{{ email_subject }}",
+         // Usiamo |safe per evitare che Django faccia l'escape dei tag HTML
+         message_html: `{{ email_message|safe }}`
+      };
+
+      emailjs.send(
+          "{{ EMAILJS_SERVICE_ID }}", 
+          "{{ EMAILJS_TEMPLATE_ID }}", 
+          templateParams
+      )
+      .then(function(response) {
+            console.log("SUCCESS!", response.status, response.text);
+            // Reindirizziamo alla vista che aggiorna lo stato nel DB
+            window.location.href = "{% url 'compliance:aggiorna_stato_fornitore' fornitore.id %}";
+         }, function(error) {
+            console.error("FAILED...", error);
+            alert("Errore nell'invio: " + JSON.stringify(error));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i> Errore, Riprova';
+         });
+   }
+</script>
+{% endblock %}

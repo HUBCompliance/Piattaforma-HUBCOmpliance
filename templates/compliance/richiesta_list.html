@@ -9,7 +9,7 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{% translate "Gestione Richieste (Ticket)" %}</li>
             </ol>
         </nav>
@@ -17,7 +17,7 @@
         <div class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{% translate "Registro Richieste Interessati" %}</h5>
-                <a href="{% url 'richiesta_create' %}" class="btn btn-primary btn-sm">
+                <a href="{% url 'compliance:richiesta_create' %}" class="btn btn-primary btn-sm">
                     <i class="bi bi-plus-circle me-1"></i> {% translate "Registra Nuova Richiesta" %}
                 </a>
             </div>
@@ -55,7 +55,7 @@
                                     {{ richiesta.data_scadenza_risposta|date:"d/m/Y" }}
                                 </td>
                                 <td>
-                                    <a href="{% url 'richiesta_dettaglio' richiesta.pk %}" class="btn btn-outline-secondary btn-sm">{% translate "Gestisci" %}</a>
+                                    <a href="{% url 'compliance:richiesta_dettaglio' richiesta.pk %}" class="btn btn-outline-secondary btn-sm">{% translate "Gestisci" %}</a>
                                 </td>
                             </tr>
                             {% empty %}

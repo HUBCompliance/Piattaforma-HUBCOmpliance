@@ -9,7 +9,7 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{% translate "Gestione Incidenti" %}</li>
             </ol>
         </nav>
@@ -17,7 +17,7 @@
         <div class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{% translate "Registro Incidenti (Data Breach)" %}</h5>
-                <a href="{% url 'incidente_create' %}" class="btn btn-danger btn-sm">
+                <a href="{% url 'compliance:incidente_create' %}" class="btn btn-danger btn-sm">
                     <i class="bi bi-exclamation-triangle-fill me-1"></i> {% translate "Segnala Nuovo Incidente" %}
                 </a>
             </div>
@@ -51,7 +51,7 @@
                                 <td>{{ incidente.data_rilevamento|date:"d/m/Y H:i" }}</td>
                                 <td>{{ incidente.data_scadenza_notifica|date:"d/m/Y H:i" }}</td>
                                 <td>
-                                    <a href="{% url 'incidente_dettaglio' incidente.pk %}" class="btn btn-outline-secondary btn-sm">{% translate "Dettagli" %}</a>
+                                    <a href="{% url 'compliance:incidente_dettaglio' incidente.pk %}" class="btn btn-outline-secondary btn-sm">{% translate "Dettagli" %}</a>
                                 </td>
                             </tr>
                             {% empty %}

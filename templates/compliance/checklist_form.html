@@ -9,7 +9,7 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{{ titolo_pagina }}</li>
             </ol>
         </nav>
@@ -62,7 +62,7 @@
                     {% if domande_list %}
                     <button type="submit" class="btn btn-primary btn-lg">{% translate "Calcola Rischio e Salva" %}</button>
                     {% endif %}
-                    <a href="{% url 'dashboard_compliance' %}" class="btn btn-outline-secondary btn-lg">{% translate "Torna al Cruscotto" %}</a>
+                    <a href="{% url 'compliance:dashboard_compliance' %}" class="btn btn-outline-secondary btn-lg">{% translate "Torna al Cruscotto" %}</a>
 
                 </form>
             </div>

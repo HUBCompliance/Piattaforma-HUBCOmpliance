@@ -9,8 +9,8 @@
         
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'gestione_formazione' %}">{% translate "Gestione Formazione" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:dashboard_compliance' %}">{% translate "Cruscotto Compliance" %}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'compliance:gestione_formazione' %}">{% translate "Gestione Formazione" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{% translate "Importa Studenti (Excel)" %}</li>
             </ol>
         </nav>
@@ -36,7 +36,7 @@
                     </div>
                     <hr>
                     <button type="submit" class="btn btn-primary btn-lg">{% translate "Carica e Importa" %}</button>
-                    <a href="{% url 'gestione_formazione' %}" class="btn btn-outline-secondary btn-lg">{% translate "Annulla" %}</a>
+                    <a href="{% url 'compliance:gestione_formazione' %}" class="btn btn-outline-secondary btn-lg">{% translate "Annulla" %}</a>
                 </form>
             </div>
         </div>

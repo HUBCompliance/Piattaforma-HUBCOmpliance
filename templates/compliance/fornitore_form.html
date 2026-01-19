@@ -1,0 +1,59 @@
+{% extends "base_studente.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Nuovo Fornitore" %} - {{ azienda.nome }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+  <div class="col">
+    <h1 class="h3 mb-0">{% translate "Nuovo Fornitore" %} - {{ azienda.nome }}</h1>
+    <p class="text-muted mb-0">{% translate "Inserisci i dati del fornitore da valutare." %}</p>
+  </div>
+  <div class="col-auto">
+    <a href="{% url 'compliance:lista_fornitori_azienda' %}?azienda_id={{ azienda.pk }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>{% translate "Torna ai fornitori" %}
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.ragione_sociale.id_for_label }}">{% translate "Ragione Sociale" %}</label>
+        {{ form.ragione_sociale }}
+        {% if form.ragione_sociale.errors %}
+          <div class="text-danger small">{{ form.ragione_sociale.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.email_contatto.id_for_label }}">{% translate "Email Contatto" %}</label>
+        {{ form.email_contatto }}
+        {% if form.email_contatto.errors %}
+          <div class="text-danger small">{{ form.email_contatto.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.servizio_fornito.id_for_label }}">{% translate "Servizio Fornito" %}</label>
+        {{ form.servizio_fornito }}
+        {% if form.servizio_fornito.errors %}
+          <div class="text-danger small">{{ form.servizio_fornito.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check2-circle me-1"></i>{% translate "Salva" %}
+        </button>
+        <a href="{% url 'compliance:lista_fornitori_azienda' %}?azienda_id={{ azienda.pk }}" class="btn btn-outline-secondary">
+          {% translate "Annulla" %}
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

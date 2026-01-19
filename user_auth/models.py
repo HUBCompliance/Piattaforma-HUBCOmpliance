@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 # ==============================================================================
 # 0. FUNZIONI HELPER PER IL CARICAMENTO FILE
@@ -40,7 +41,6 @@ class Azienda(models.Model):
     
     # --------------------------------------------------------------------------
     # A. PERMESSI MASTER (GESTITI SOLO DALL'ADMIN)
-    # Decidono quali moduli il Consulente PUÒ vedere e attivare
     # --------------------------------------------------------------------------
     can_mod_trattamenti = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Registro Trattamenti"))
     can_mod_documenti = models.BooleanField(default=True, verbose_name=_("Admin: Permetti Gestione Documentale"))
@@ -55,7 +55,6 @@ class Azienda(models.Model):
 
     # --------------------------------------------------------------------------
     # B. ATTIVAZIONE MODULI (GESTITI DAL CONSULENTE)
-    # Decidono cosa il Referente Aziendale vede effettivamente in Dashboard
     # --------------------------------------------------------------------------
     mod_cruscotto = models.BooleanField(default=True, verbose_name=_("Attiva Cruscotto principale"))
     mod_trattamenti = models.BooleanField(default=False, verbose_name=_("Attiva Registro Trattamenti"))
@@ -69,6 +68,11 @@ class Azienda(models.Model):
     mod_tia = models.BooleanField(default=False, verbose_name=_("Attiva TIA Estero"))
     mod_organigramma = models.BooleanField(default=False, verbose_name=_("Attiva Organigramma Privacy"))
     mod_csirt = models.BooleanField(default=False, verbose_name=_("Attiva Gestione CSIRT (NIS2)"))
+    mod_asset = models.BooleanField(default=False, verbose_name=_("Attiva Asset Aziendali"))
+    mod_analisi_rischi = models.BooleanField(default=False, verbose_name=_("Attiva Analisi Rischi"))
+    mod_rete = models.BooleanField(default=False, verbose_name=_("Attiva Configurazione Rete"))
+    mod_fornitori = models.BooleanField(default=False, verbose_name=_("Attiva Fornitori"))
+    mod_whistleblowing = models.BooleanField(default=False, verbose_name=_("Attiva Whistleblowing"))
     
     # --------------------------------------------------------------------------
     # C. ALTRI CAMPI AZIENDA
@@ -172,3 +176,35 @@ class NotaAzienda(models.Model):
 
     def __str__(self):
         return f"Nota per {self.azienda.nome}"
+
+# ==============================================================================
+# 6. MODELLO AUDIT LOG (REGISTRO ACCESSI E AZIONI)
+# ==============================================================================
+
+# In fondo al file user_auth/models.py
+# Deve esserci una riga vuota sopra. La parola 'class' deve toccare il bordo sinistro.
+
+class AuditLog(models.Model):
+    AZIONE_CHOICES = [
+        ('LOGIN', 'Accesso'),
+        ('LOGOUT', 'Uscita'),
+        ('LOGIN_FAILED', 'Tentativo Fallito'), # Aggiungi questa riga
+        ('CREATE', 'Creazione'),
+        ('UPDATE', 'Modifica'),
+        ('DELETE', 'Eliminazione')
+    ]
+
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='audit_logs')
+    azione = models.CharField(max_length=20, choices=AZIONE_CHOICES)
+    modello = models.CharField(max_length=100, blank=True, null=True) 
+    descrizione = models.TextField() 
+    indirizzo_ip = models.GenericIPAddressField(null=True, blank=True)
+    data_ora = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Registro Log generale"
+        verbose_name_plural = "Registro Log generale"
+        ordering = ['-data_ora']
+
+    def __str__(self):
+        return f"{self.utente} - {self.azione} - {self.data_ora}"

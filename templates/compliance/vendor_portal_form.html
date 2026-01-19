@@ -1,0 +1,160 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% translate "Portale Fornitore" %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f8f9fa; }
+        .hero { background: #0d6efd; color: #fff; border-radius: 14px; }
+        .section-title { font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase; }
+        .question-card { border: 1px solid #e9ecef; border-radius: 12px; }
+        .question-meta { font-size: 0.78rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <div class="hero p-4 mb-4">
+        <h1 class="h4 mb-1">{% translate "Questionario Fornitore" %}</h1>
+        <div class="small opacity-75">{{ fornitore.ragione_sociale }}</div>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm mb-4">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-info-circle me-2 mt-1"></i>
+            <div>
+                <div class="fw-semibold">{% translate "Informazioni sul questionario" %}</div>
+                <div class="small">
+                    {% translate "Questa valutazione supporta gli adempimenti NIS2 e GDPR e misura la maturità del fornitore sui controlli di governance, sicurezza IT e sicurezza fisica." %}
+                    {% translate "Le risposte concorrono a definire il profilo di rischio e vengono trattate in modo riservato per finalità di compliance." %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body">
+            <div class="section-title mb-3">{% translate "FAQ" %}</div>
+            <div class="accordion" id="accordionFaq">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqOne">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapseOne" aria-expanded="false" aria-controls="faqCollapseOne">
+                            {% translate "A cosa serve questo questionario?" %}
+                        </button>
+                    </h2>
+                    <div id="faqCollapseOne" class="accordion-collapse collapse" aria-labelledby="faqOne" data-bs-parent="#accordionFaq">
+                        <div class="accordion-body">
+                            {% translate "Serve a valutare il livello di sicurezza del fornitore in relazione ai requisiti normativi e contrattuali, con particolare attenzione a NIS2 e GDPR." %}
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqTwo">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapseTwo" aria-expanded="false" aria-controls="faqCollapseTwo">
+                            {% translate "Come vengono utilizzate le risposte?" %}
+                        </button>
+                    </h2>
+                    <div id="faqCollapseTwo" class="accordion-collapse collapse" aria-labelledby="faqTwo" data-bs-parent="#accordionFaq">
+                        <div class="accordion-body">
+                            {% translate "Le risposte vengono analizzate per individuare eventuali gap e definire un profilo di rischio; i risultati supportano le decisioni di governance e le attività di monitoraggio." %}
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqThree">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapseThree" aria-expanded="false" aria-controls="faqCollapseThree">
+                            {% translate "Posso compilare il questionario in più sessioni?" %}
+                        </button>
+                    </h2>
+                    <div id="faqCollapseThree" class="accordion-collapse collapse" aria-labelledby="faqThree" data-bs-parent="#accordionFaq">
+                        <div class="accordion-body">
+                            {% translate "Sì, è possibile completarlo in più sessioni prima dell’invio finale." %}
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqFour">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapseFour" aria-expanded="false" aria-controls="faqCollapseFour">
+                            {% translate "Cosa devo fare se un requisito non è applicabile?" %}
+                        </button>
+                    </h2>
+                    <div id="faqCollapseFour" class="accordion-collapse collapse" aria-labelledby="faqFour" data-bs-parent="#accordionFaq">
+                        <div class="accordion-body">
+                            {% translate "Se un requisito non è applicabile, selezionare la risposta più vicina al contesto operativo e fornire eventuali note esplicative." %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="section-title">{% translate "Questionario CLUSIT" %}</div>
+            <div class="text-muted small">{% translate "Compila tutte le risposte possibili." %}</div>
+        </div>
+
+        <div class="accordion" id="accordionCategorie">
+            {% for area_nome, domande in domande_per_area.items %}
+                <div class="accordion-item mb-3">
+                    <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}"
+                                aria-expanded="false"
+                                aria-controls="collapse{{ forloop.counter }}">
+                            {{ area_nome }}
+                        </button>
+                    </h2>
+                    <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse"
+                         aria-labelledby="heading{{ forloop.counter }}" data-bs-parent="#accordionCategorie">
+                        <div class="accordion-body p-2">
+                            {% if domande.exists %}
+                                {% for domanda in domande %}
+                                    <div class="question-card p-3 mb-3 bg-white">
+                                        <div class="question-meta mb-1">
+                                            {{ domanda.codice }} · {{ domanda.tema }}
+                                        </div>
+                                        <div class="fw-bold mb-2">{{ domanda.domanda }}</div>
+                                        <div class="btn-group" role="group" aria-label="Risposta">
+                                            <input type="radio" class="btn-check" name="domanda_{{ domanda.id }}" id="si_{{ domanda.id }}" value="1.0">
+                                            <label class="btn btn-outline-success btn-sm" for="si_{{ domanda.id }}">{% translate "Sì" %}</label>
+
+                                            <input type="radio" class="btn-check" name="domanda_{{ domanda.id }}" id="parz_{{ domanda.id }}" value="0.5">
+                                            <label class="btn btn-outline-warning btn-sm" for="parz_{{ domanda.id }}">{% translate "Parziale" %}</label>
+
+                                            <input type="radio" class="btn-check" name="domanda_{{ domanda.id }}" id="no_{{ domanda.id }}" value="0.0">
+                                            <label class="btn btn-outline-danger btn-sm" for="no_{{ domanda.id }}">{% translate "No" %}</label>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-warning mb-0">{% translate "Nessuna domanda disponibile." %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h6 class="mb-2">{% translate "Allegati (opzionale)" %}</h6>
+                <input type="file" name="certificato" class="form-control">
+            </div>
+        </div>
+
+        <div class="d-grid mt-4">
+            <button class="btn btn-primary btn-lg" type="submit">
+                {% translate "Invia Risposte" %}
+            </button>
+        </div>
+    </form>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

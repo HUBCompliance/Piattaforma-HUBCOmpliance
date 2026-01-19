@@ -190,7 +190,7 @@ class AziendaModuliForm(forms.ModelForm):
     
     class Meta:
         model = Azienda
-        fields = ['mod_trattamenti', 'mod_documenti', 'mod_audit', 'mod_videosorveglianza', 'mod_tia', 'mod_organigramma']
+        fields = ['mod_trattamenti', 'mod_documenti', 'mod_audit', 'mod_videosorveglianza', 'mod_tia', 'mod_organigramma', 'mod_asset', 'mod_analisi_rischi', 'mod_rete', 'mod_fornitori', 'mod_whistleblowing']
         widgets = {
             'mod_trattamenti': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'mod_documenti': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -198,4 +198,9 @@ class AziendaModuliForm(forms.ModelForm):
             'mod_videosorveglianza': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'mod_tia': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'mod_organigramma': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'mod_asset': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'mod_analisi_rischi': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'mod_rete': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'mod_fornitori': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'mod_whistleblowing': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }

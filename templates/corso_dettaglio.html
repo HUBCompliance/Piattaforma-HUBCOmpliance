@@ -80,21 +80,20 @@
                             {% endfor %}
                         </ul>
                         {% if not item.is_completato %}
-                            {% if item.ha_quiz %}
-                                <a href="{% url 'take_test' item.modulo.quiz_verifica.id %}" class="btn btn-primary">
+                            {% if item.ha_quiz and item.modulo.quiz %}
+                                <a href="{% url 'courses:take_test' item.modulo.quiz.id %}" class="btn btn-primary">
                                     {% translate "Inizia Quiz di Verifica" %}
                                 </a>
                             {% else %}
-                                <form action="{% url 'completa_modulo' item.modulo.id %}" method="post" class="d-inline">
+                                <form action="{% url 'courses:completa_modulo' item.modulo.id %}" method="post" class="d-inline">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-success">
                                         {% translate "Segna come completato" %}
                                     </button>
                                 </form>
-                            {% endif %}
-                        {% else %}
+                            {% endif %} {% else %}
                             <span class="badge bg-success p-2">{% translate "Completato" %}</span>
-                        {% endif %}
+                        {% endif %} ```
                     </div>
                 </div>
             </div>
@@ -107,7 +106,7 @@
                 {% if attestato_ottenuto %}
                     <h3 class="h4">{% translate "Corso Completato!" %}</h3>
                     <p>{% translate "Hai completato con successo questo corso. Scarica il tuo attestato." %}</p>
-                    <a href="{% url 'genera_attestato_pdf' attestato_ottenuto.id %}" class="btn btn-lg btn-success" target="_blank">
+                    <a href="{% url 'courses:genera_attestato_pdf' attestato_ottenuto.id %}" class="btn btn-lg btn-success" target="_blank">
                         <i class="bi bi-download me-1"></i>
                         {% translate "Scarica Attestato" %}
                     </a>
@@ -115,7 +114,7 @@
                 {% elif tutti_moduli_completati and test_finale %}
                     <h3 class="h4">{{ test_finale.titolo }}</h3>
                     <p>{% translate "Hai completato tutti i moduli! Ora puoi accedere al test finale." %}</p>
-                    <a href="{% url 'take_test' test_finale.id %}" class="btn btn-lg btn-primary">
+                    <a href="{% url 'courses:take_test' test_finale.id %}" class="btn btn-lg btn-primary">
                         {% translate "Inizia il Test Finale" %}
                     </a>
 

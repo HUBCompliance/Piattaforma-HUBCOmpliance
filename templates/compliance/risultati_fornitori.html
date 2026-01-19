@@ -1,0 +1,172 @@
+{% extends 'base_studente.html' %}
+{% load i18n %}
+
+{% block extra_head %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    {# --- INTESTAZIONE --- #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>{% translate "Analisi Vendor Security" %}</h2>
+            <p class="text-muted">{% translate "Risultati basati sul framework CLUSIT per" %}: <strong>{{ fornitore.ragione_sociale }}</strong></p>
+        </div>
+        <div class="text-end">
+            <a href="{% url 'compliance:lista_domande_fornitori' fornitore.id %}" class="btn btn-outline-primary shadow-sm">
+                <i class="bi bi-pencil me-1"></i> {% translate "Modifica Questionario" %}
+            </a>
+            <button onclick="window.print()" class="btn btn-light shadow-sm border ms-2">
+                <i class="bi bi-printer me-1"></i> {% translate "Stampa Report" %}
+            </button>
+        </div>
+    </div>
+
+    {# --- SCORE GENERALE --- #}
+    <div class="row mb-5">
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
+                    <h5 class="text-uppercase text-muted small fw-bold">{% translate "Score di Conformità Totale" %}</h5>
+                    <div class="display-2 fw-bold {% if punteggio_finale > 75 %}text-success{% elif punteggio_finale > 50 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ punteggio_finale }}%
+                    </div>
+                    <div class="progress mt-3" style="height: 10px;">
+                        <div class="progress-bar {% if punteggio_finale > 75 %}bg-success{% elif punteggio_finale > 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                             role="progressbar" style="width: {{ punteggio_finale }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- DETTAGLIO MACRO-AREE --- #}
+        <div class="col-lg-8">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-start border-primary border-4">
+                        <div class="card-body">
+                            <h6 class="text-muted small">{% translate "Gestione Sicurezza" %}</h6>
+                            <h3 class="mb-0">{{ dettaglio_aree.GESTIONE }}%</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-start border-info border-4">
+                        <div class="card-body">
+                            <h6 class="text-muted small">{% translate "Sicurezza IT" %}</h6>
+                            <h3 class="mb-0">{{ dettaglio_aree.IT }}%</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-start border-success border-4">
+                        <div class="card-body">
+                            <h6 class="text-muted small">{% translate "Sicurezza Fisica" %}</h6>
+                            <h3 class="mb-0">{{ dettaglio_aree.FISICA }}%</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        {# --- GRAFICO RADAR --- #}
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">{% translate "Bilanciamento Aree di Sicurezza" %}</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartRadarSezioni"></canvas>
+                </div>
+            </div>
+        </div>
+
+        {# --- RACCOMANDAZIONI AUTOMATICHE --- #}
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <button class="btn btn-link text-decoration-none p-0 d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#aiInsightsCollapse" aria-expanded="false" aria-controls="aiInsightsCollapse">
+                            <i class="bi bi-chevron-down"></i>
+                            {% translate "Piano di Miglioramento (AI Insights)" %}
+                            <span class="text-muted small">· {% translate "Apri per dettagli" %}</span>
+                        </button>
+                    </h5>
+                </div>
+                <div id="aiInsightsCollapse" class="collapse">
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            {% for rec in raccomandazioni %}
+                            <div class="list-group-item px-0 py-3">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <h6 class="mb-1 text-dark">
+                                        <i class="bi bi-lightbulb me-2"></i>{{ rec.titolo }}
+                                    </h6>
+                                    <span class="badge bg-secondary">{{ rec.priorita }}</span>
+                                </div>
+                                <p class="mb-1 small text-muted">{{ rec.area }} · Owner: {{ rec.owner }} · {{ rec.orizzonte }}</p>
+                                <p class="mb-1 small">{{ rec.descrizione }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- LOGICA GRAFICO --- #}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const ctx = document.getElementById('chartRadarSezioni').getContext('2d');
+    new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: {{ labels_grafico|safe }},
+            datasets: [{
+                label: '{% translate "Conformità %" %}',
+                data: {{ valori_grafico|safe }},
+                fill: true,
+                backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                borderColor: 'rgb(13, 110, 253)',
+                pointBackgroundColor: 'rgb(13, 110, 253)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: 'rgb(13, 110, 253)'
+            }]
+        },
+        options: {
+            scales: {
+                r: {
+                    angleLines: { display: true },
+                    suggestedMin: 0,
+                    suggestedMax: 100,
+                    ticks: {
+                        backdropColor: 'transparent',
+                        stepSize: 20
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+});
+</script>
+
+<style>
+    /* Stili per le label di priorità */
+    .bg-danger-soft { background-color: #f8d7da; }
+    .bg-warning-soft { background-color: #fff3cd; }
+    .bg-info-soft { background-color: #cff4fc; }
+    @media print {
+        .btn, .navbar, footer { display: none !important; }
+        .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+    }
+</style>
+{% endblock %}
